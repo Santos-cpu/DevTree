@@ -20,7 +20,7 @@
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
-  <!-- Fondo ambiental + Lienzo de Partículas Generativas -->
+  <!-- Fondo ambiental + Lienzo de Partículas Generativas siempre activo -->
   <div class="ambient-bg">
     <div class="glow glow-left"></div>
     <div class="glow glow-right"></div>
@@ -37,7 +37,7 @@
           <span class="logo-ring"></span>
         </div>
         <div class="brand-text">
-          <div class="brand-title">DEVTREE <span class="brand-tag">// PLAYGROUND v8.1</span></div>
+          <div class="brand-title">DEVTREE <span class="brand-tag">// PLAYGROUND v8.2</span></div>
           <div class="brand-subtitle" id="activeProjectHeader">Proyecto en curso (0 en Stack)</div>
         </div>
       </div>
@@ -61,8 +61,8 @@
         <span id="unreadCountText">0 nuevas sin leer</span>
       </div>
 
-      <button type="button" class="btn-lab-toggle active" id="btnToggleParticles">
-        ✨ Fondo
+      <button type="button" class="btn-lab-toggle" id="btnClearGlobalFilter">
+        ✕ Limpiar filtro
       </button>
 
       <div class="search-box">
