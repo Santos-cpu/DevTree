@@ -8,16 +8,18 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
+  <!-- Librería GSAP para físicas de ramas y transiciones de interfaz -->
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
 </head>
 <body>
-  <!-- Fondo estático acelerado por GPU (0 repintados al mover el ratón) -->
+  <!-- Fondo ambiental -->
   <div class="ambient-bg">
     <div class="glow glow-left"></div>
     <div class="glow glow-right"></div>
     <div class="grid-overlay"></div>
   </div>
 
-  <!-- BARRA SUPERIOR MINIMALISTA Y SIMÉTRICA -->
+  <!-- BARRA SUPERIOR SIMÉTRICA -->
   <header class="topbar">
     <div class="topbar-left">
       <div class="brand">
@@ -27,9 +29,14 @@
         </div>
         <div class="brand-text">
           <div class="brand-title">DEVTREE <span class="brand-tag">// STUDIO OS</span></div>
-          <div class="brand-subtitle" id="activeProjectHeader">Proyecto activo: Sin guardar</div>
+          <div class="brand-subtitle" id="activeProjectHeader">Proyecto en curso (0 en Stack)</div>
         </div>
       </div>
+
+      <button type="button" class="btn-advisor-launcher" id="btnToggleStudio">
+        <span class="launcher-icon">⚡</span>
+        <span>Asesor & Proyectos</span>
+      </button>
     </div>
 
     <div class="topbar-center">
@@ -48,15 +55,12 @@
       </div>
 
       <button type="button" class="btn-ghost" id="btnOpenModal">+ Añadir</button>
-      <button type="button" class="btn-primary" id="btnToggleWindow">
-        ⚡ Asesor & Proyectos
-      </button>
     </div>
   </header>
 
   <!-- ESPACIO DE TRABAJO PRINCIPAL -->
   <main class="workspace">
-    <!-- VISTA 1: LIENZO DE ÁRBOL (60 FPS LERP) -->
+    <!-- VISTA 1: LIENZO DE ÁRBOL -->
     <section class="tree-viewport active" id="treeViewport">
       <div class="canvas-hud">
         <div class="hud-group">
@@ -70,14 +74,14 @@
         </div>
         <div class="hud-group">
           <button type="button" class="hud-btn" id="btnZoomOut">−</button>
-          <span class="zoom-readout" id="zoomReadout">75%</span>
+          <span class="zoom-readout" id="zoomReadout">72%</span>
           <button type="button" class="hud-btn" id="btnZoomIn">+</button>
           <button type="button" class="hud-btn" id="btnResetCamera">Centrar</button>
         </div>
       </div>
 
       <div class="canvas-hint">
-        Haz clic en una categoría para abrir o cerrar sus herramientas · Arrastra el lienzo con fluidez inercial
+        Pasa el ratón sobre cualquier tecnología para ver su ficha al instante · Haz clic en un nodo si quieres dejarla fija
       </div>
 
       <div class="tree-stage" id="treeStage">
@@ -91,45 +95,46 @@
       <div class="bento-container" id="bentoContainer"></div>
     </section>
 
-    <!-- VENTANA FLOTANTE DERECHA: ASESOR + PROYECTOS + FICHA -->
-    <aside class="floating-window open" id="floatingWindow" aria-hidden="false">
-      <div class="fw-header">
-        <div class="fw-tabs">
-          <button type="button" class="fw-tab active" data-tab="advisor" id="tabBtnAdvisor">⚡ Asesor</button>
-          <button type="button" class="fw-tab" data-tab="projects" id="tabBtnProjects">
-            📁 Proyectos <span class="tab-count" id="projectsCountBadge">0</span>
+    <!-- VENTANA IZQUIERDA INDEPENDIENTE: ASESOR DE PROYECTO & PROYECTOS GUARDADOS -->
+    <aside class="studio-panel" id="studioPanel" aria-hidden="true">
+      <div class="sp-top-bar">
+        <div class="sp-tabs">
+          <button type="button" class="sp-tab active" data-tab="advisor" id="tabBtnAdvisor">
+            ⚡ Asesor de Proyecto
           </button>
-          <button type="button" class="fw-tab" data-tab="inspector" id="tabBtnInspector">🔍 Ficha</button>
+          <button type="button" class="sp-tab" data-tab="projects" id="tabBtnProjects">
+            📁 Mis Proyectos <span class="tab-count" id="projectsCountBadge">0</span>
+          </button>
         </div>
-        <button type="button" class="btn-icon" id="btnCloseWindow" aria-label="Minimizar ventana">✕</button>
+        <button type="button" class="btn-icon" id="btnCloseStudio" aria-label="Cerrar panel">✕</button>
       </div>
 
-      <!-- PESTAÑA 1: ASESOR DE PROYECTO -->
-      <div class="fw-pane active" id="paneAdvisor">
-        <div class="fw-section">
-          <label class="section-label">Nombre de tu proyecto actual</label>
-          <div class="project-name-row">
-            <input type="text" id="projectNameInput" class="fw-input" placeholder="Ej: Portfolio 3D / App Gastos..." />
+      <!-- PESTAÑA 1: ASESOR -->
+      <div class="sp-pane active" id="paneAdvisor">
+        <div class="sp-block">
+          <label class="sp-label">Nombre del proyecto</label>
+          <div class="sp-row">
+            <input type="text" id="projectNameInput" class="sp-input" placeholder="Ej: Portfolio 3D / App Gastos..." />
             <button type="button" class="btn-primary btn-sm" id="btnSaveProjectQuick">Guardar</button>
           </div>
         </div>
 
-        <div class="fw-section">
-          <label class="section-label">Describe lo que quieres construir</label>
+        <div class="sp-block">
+          <label class="sp-label">¿Qué quieres desarrollar?</label>
           <textarea
             id="advisorInput"
-            class="fw-textarea"
+            class="sp-textarea"
             rows="3"
-            placeholder="Describe la idea: ej. Quiero hacer una web muy animada con scroll suave, modelos 3D y base de datos SQL..."
+            placeholder="Describe tu idea: ej. Quiero una web muy fluida con scroll inercial, modelos 3D interactivos y base de datos SQL..."
           ></textarea>
-          <div class="fw-actions-row">
-            <button type="button" class="btn-primary" id="btnRunAdvisor">Recomendar Tecnologías</button>
+          <div class="sp-row">
+            <button type="button" class="btn-primary" id="btnRunAdvisor">Analizar y Recomendar</button>
             <button type="button" class="btn-ghost" id="btnClearAdvisor">Limpiar</button>
           </div>
         </div>
 
-        <div class="fw-section">
-          <label class="section-label">Plantillas rápidas de proyecto</label>
+        <div class="sp-block">
+          <label class="sp-label">Plantillas rápidas</label>
           <div class="preset-grid">
             <button type="button" class="preset-chip" data-name="Portfolio Awwwards 3D" data-prompt="Portfolio web creativo nivel Awwwards con smooth scroll, animaciones GSAP, modelos 3D en Three.js o Spline y despliegue gratis">
               Portfolio Awwwards 3D
@@ -146,113 +151,123 @@
           </div>
         </div>
 
-        <div class="fw-section">
-          <div class="rec-header-row">
-            <label class="section-label">Recomendaciones del Asesor</label>
+        <div class="sp-block">
+          <div class="sp-header-inline">
+            <label class="sp-label">Tecnologías recomendadas</label>
             <button type="button" class="btn-ghost btn-xs" id="btnPassAllToStack" style="display:none;">
               Pasar todas al Stack Lab →
             </button>
           </div>
           <div id="advisorResultsContainer" class="advisor-results-box">
             <p class="empty-hint">
-              Describe tu proyecto arriba y pulsa <strong>Recomendar Tecnologías</strong>. El árbol abrirá automáticamente las ramas ideales.
+              Describe tu proyecto arriba y pulsa <strong>Analizar y Recomendar</strong>. Las ramas recomendadas se desplegarán automáticamente en el árbol.
             </p>
           </div>
         </div>
       </div>
 
-      <!-- PESTAÑA 2: MIS PROYECTOS GUARDADOS -->
-      <div class="fw-pane" id="paneProjects">
-        <div class="fw-section">
-          <div class="rec-header-row">
-            <label class="section-label">Gestión del proyecto en curso</label>
+      <!-- PESTAÑA 2: PROYECTOS GUARDADOS -->
+      <div class="sp-pane" id="paneProjects">
+        <div class="sp-block">
+          <div class="sp-header-inline">
+            <label class="sp-label">Proyecto activo</label>
             <button type="button" class="btn-ghost btn-xs" id="btnNewBlankProject">+ Nuevo proyecto vacío</button>
           </div>
-          <p class="helper-copy">
-            Guarda el proyecto actual con su descripción y su selección del <strong>Stack Lab</strong> para retomarlo cuando quieras.
+          <p class="empty-hint">
+            Guarda la combinación actual de tecnologías del <strong>Stack Lab</strong> para retomarla más adelante o empezar un proyecto distinto.
           </p>
           <button type="button" class="btn-primary" id="btnSaveCurrentProjectFull">
-            💾 Guardar estado del proyecto actual
+            💾 Guardar proyecto actual
           </button>
         </div>
 
-        <div class="fw-section">
-          <label class="section-label">Tus proyectos guardados</label>
+        <div class="sp-block">
+          <label class="sp-label">Biblioteca de proyectos</label>
           <div id="savedProjectsList" class="saved-projects-list"></div>
         </div>
 
-        <div class="fw-section">
-          <label class="section-label">Copia de seguridad</label>
-          <button type="button" class="btn-ghost" id="btnExportJson">Exportar todos mis proyectos y catálogo (JSON)</button>
-        </div>
-      </div>
-
-      <!-- PESTAÑA 3: INSPECTOR / FICHA TÉCNICA -->
-      <div class="fw-pane" id="paneInspector">
-        <div id="inspectorEmptyState" class="empty-hint">
-          Haz clic en cualquier tecnología o lenguaje del árbol para inspeccionar su explicación, código de ejemplo y añadirlo a tu Stack.
-        </div>
-
-        <div id="inspectorContent" style="display:none;" class="inspector-content-wrap">
-          <div class="insp-top">
-            <span class="inspector-category" id="inspCategory">RAMA</span>
-            <h2 class="inspector-title" id="inspTitle">Nombre</h2>
-            <div class="inspector-meta">
-              <span class="badge-tag" id="inspBadge">Especialidad</span>
-              <a href="#" target="_blank" rel="noopener noreferrer" class="external-link" id="inspUrl">Sitio Oficial ↗</a>
-            </div>
-          </div>
-
-          <button type="button" class="btn-primary" id="btnToggleStackFromInspector">
-            + Añadir al Stack del Proyecto
-          </button>
-
-          <div class="fw-section">
-            <label class="section-label">¿Para qué se usa y en qué destaca?</label>
-            <p class="inspector-text" id="inspSummary"></p>
-          </div>
-
-          <div class="fw-section">
-            <label class="section-label">Caso de uso ideal</label>
-            <div class="callout-box" id="inspUseCase"></div>
-          </div>
-
-          <div class="fw-section">
-            <label class="section-label">Combínalo con</label>
-            <div class="synergy-box" id="inspSynergy"></div>
-          </div>
-
-          <div class="fw-section">
-            <div class="code-header">
-              <label class="section-label">Snippet / Inicio rápido</label>
-              <button type="button" class="btn-copy" id="btnCopyCode">Copiar</button>
-            </div>
-            <pre class="code-block"><code id="inspSnippet"></code></pre>
-          </div>
-
-          <div class="fw-section">
-            <label class="section-label">Tu nivel con esta tecnología</label>
-            <div class="status-selector" id="inspStatusGroup">
-              <button type="button" class="status-opt" data-status="none">Sin marcar</button>
-              <button type="button" class="status-opt" data-status="radar">En radar</button>
-              <button type="button" class="status-opt" data-status="practicing">Practicando</button>
-              <button type="button" class="status-opt" data-status="mastered">Dominada</button>
-            </div>
-          </div>
-
-          <div class="fw-section">
-            <label class="section-label" for="inspNotes">Notas personales</label>
-            <textarea id="inspNotes" class="fw-textarea" rows="2" placeholder="Apunta ideas o detalles técnicos..."></textarea>
-          </div>
+        <div class="sp-block">
+          <label class="sp-label">Copia de seguridad</label>
+          <button type="button" class="btn-ghost" id="btnExportJson">Exportar proyectos y catálogo (JSON)</button>
         </div>
       </div>
     </aside>
 
-    <!-- DOCK INFERIOR: STACK LAB CON MODO ENFOQUE Y GUARDADO -->
+    <!-- TARJETA DERECHA EXCLUSIVA: VISTA RÁPIDA DE TECNOLOGÍA (HOVER / PIN) -->
+    <aside class="tech-card" id="techCard" aria-hidden="true">
+      <div class="tc-accent-bar" id="tcAccentBar"></div>
+
+      <!-- Cabecera compacta: Categoría a la izquierda, acciones discretas a la derecha -->
+      <div class="tc-top-row tc-anim-item">
+        <div class="tc-cat-wrap">
+          <span class="tc-cat-dot" id="tcCatDot"></span>
+          <span class="tc-category" id="tcCategory">CATEGORÍA</span>
+          <span class="tc-pin-badge" id="tcPinBadge" title="Haz clic en el nodo o aquí para fijar/desfijar">📌 Fijada</span>
+        </div>
+
+        <div class="tc-quick-actions">
+          <button type="button" class="tc-stack-pill" id="btnToggleStackFromCard">+ Stack</button>
+          <a href="#" target="_blank" rel="noopener noreferrer" class="tc-web-pill" id="tcUrl">Web ↗</a>
+          <button type="button" class="tc-close-btn" id="btnCloseTechCard" aria-label="Cerrar tarjeta">✕</button>
+        </div>
+      </div>
+
+      <!-- Protagonista 1: Nombre y especialidad -->
+      <div class="tc-hero tc-anim-item">
+        <h2 class="tc-title" id="tcTitle">Nombre de Tecnología</h2>
+        <span class="tc-badge" id="tcBadge">Especialidad</span>
+      </div>
+
+      <!-- Protagonista 2: Explicación principal de alta legibilidad -->
+      <p class="tc-summary tc-anim-item" id="tcSummary"></p>
+
+      <!-- Protagonista 3: Caso de uso destacado -->
+      <div class="tc-usecase-card tc-anim-item">
+        <div class="tc-usecase-icon">✦</div>
+        <div class="tc-usecase-body">
+          <span class="tc-micro-label">Ideal para</span>
+          <p class="tc-usecase-text" id="tcUseCase"></p>
+        </div>
+      </div>
+
+      <!-- Sinergias en píldoras visuales -->
+      <div class="tc-synergy-block tc-anim-item">
+        <span class="tc-micro-label">Combina genial con</span>
+        <div class="tc-synergy-chips" id="tcSynergyChips"></div>
+      </div>
+
+      <!-- Bloque de código limpio -->
+      <div class="tc-code-wrap tc-anim-item">
+        <div class="tc-code-bar">
+          <span class="tc-micro-label">Inicio rápido</span>
+          <button type="button" class="tc-copy-btn" id="btnCopyCode">Copiar</button>
+        </div>
+        <pre class="tc-code-pre"><code id="tcSnippet"></code></pre>
+      </div>
+
+      <!-- Pie discreto: Nivel de dominio y nota rápida -->
+      <div class="tc-footer tc-anim-item">
+        <div class="tc-status-bar" id="tcStatusGroup">
+          <button type="button" class="tc-status-btn" data-status="none">Sin marcar</button>
+          <button type="button" class="tc-status-btn" data-status="radar">En radar</button>
+          <button type="button" class="tc-status-btn" data-status="practicing">Practicando</button>
+          <button type="button" class="tc-status-btn" data-status="mastered">Dominada</button>
+        </div>
+        <input
+          type="text"
+          id="tcNotes"
+          class="tc-note-input"
+          placeholder="Añadir nota rápida sobre esta tecnología..."
+          autocomplete="off"
+        />
+      </div>
+    </aside>
+
+    <!-- DOCK INFERIOR: STACK LAB -->
     <div class="stack-dock" id="stackDock">
       <div class="stack-dock-left">
         <span class="stack-dock-title">STACK LAB</span>
-        <span class="stack-dock-count" id="stackCountBadge">0 seleccionadas</span>
+        <span class="stack-dock-count" id="stackCountBadge">0 en el proyecto</span>
       </div>
 
       <div class="stack-dock-chips" id="stackDockChips"></div>
@@ -299,7 +314,7 @@
         </div>
 
         <div class="form-group">
-          <label for="toolSummary">Explicación breve</label>
+          <label for="toolSummary">Explicación clara</label>
           <textarea id="toolSummary" rows="2" required placeholder="¿Para qué sirve y qué ventajas aporta?"></textarea>
         </div>
 
@@ -310,8 +325,8 @@
 
         <div class="form-row">
           <div class="form-group">
-            <label for="toolSynergy">Sinergia recomendada</label>
-            <input type="text" id="toolSynergy" placeholder="Ej. Astro + GSAP" />
+            <label for="toolSynergy">Sinergias (separadas por +)</label>
+            <input type="text" id="toolSynergy" placeholder="Ej. Astro + GSAP + TypeScript" />
           </div>
           <div class="form-group">
             <label for="toolKeywords">Palabras clave (Asesor)</label>
