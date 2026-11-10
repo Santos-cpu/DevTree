@@ -10,7 +10,7 @@ const CATEGORIES = [
   { id: 'inspiration', name: 'Inspiración & Deploy', color: '#6366f1', description: 'Galerías premiadas, demos con código y hosting gratuito.' }
 ];
 
-// CATÁLOGO BASE DE 48 TECNOLOGÍAS (6 por rama)
+// CATÁLOGO BASE DE 48 TECNOLOGÍAS
 const INITIAL_TOOLS = [
   // 1. Lenguajes
   { id: 'lang-js', name: 'JavaScript (ES2026)', category: 'languages', badge: 'Frontend & Web Core', url: 'https://developer.mozilla.org/es/docs/Web/JavaScript', summary: 'El lenguaje nativo del navegador. Controla el DOM, animaciones con GSAP, escenas 3D en WebGL y lógica cliente-servidor.', useCase: 'Webs interactivas, PWAs y experiencias animadas a medida.', synergy: 'HTML + CSS + GSAP + Three.js', keywords: 'javascript js web frontend dom animaciones interactivo navegador pwa', snippet: `const data = await (await fetch("/api/items")).json();` },
@@ -77,11 +77,15 @@ const INITIAL_TOOLS = [
   { id: 'cloudflare-github', name: 'Cloudflare Pages & GitHub', category: 'inspiration', badge: 'Hosting Ilimitado & Actions', url: 'https://pages.cloudflare.com/', summary: 'Alojamiento gratuito con ancho de banda ilimitado más GitHub Actions para ejecutar bots diarios en tu repositorio.', useCase: 'Alojar proyectos con carga multimedia y automatizar actualizaciones.', synergy: 'Git + GitHub Actions + Python', keywords: 'cloudflare github pages hosting gratis cdn rapido', snippet: `git push origin main` }
 ];
 
+const INITIAL_IDS = new Set(INITIAL_TOOLS.map(t => t.id));
+
 // CLAVES LOCALSTORAGE
-const KEY_PROGRESS = 'devtree_v6_progress';
-const KEY_CUSTOM_TOOLS = 'devtree_v6_custom_tools';
-const KEY_SAVED_PROJECTS = 'devtree_v6_saved_projects';
-const KEY_ACTIVE_PROJECT = 'devtree_v6_active_project';
+const KEY_PROGRESS = 'devtree_v7_progress';
+const KEY_CUSTOM_TOOLS = 'devtree_v7_custom_tools';
+const KEY_SAVED_PROJECTS = 'devtree_v7_saved_projects';
+const KEY_ACTIVE_PROJECT = 'devtree_v7_active_project';
+const KEY_SEEN_TOOLS = 'devtree_v7_seen_tools';
+const KEY_DAILY_AUTO_CACHE = 'devtree_v7_daily_auto_cache';
 
 // ESTADO GLOBAL
 const state = {
@@ -90,12 +94,12 @@ const state = {
   expandedCategories: new Set(),
   stackFocusMode: false,
   search: '',
-  // Estado exclusivo de la Tarjeta Derecha de Tecnología
   activeToolId: null,
   isCardPinned: false,
   isCardVisible: false,
   recommendedIds: [],
   tools: [],
+  seenToolIds: new Set(), // Guarda qué tecnologías nuevas ya has leído pasando el ratón
   userProgress: {},
   currentProject: {
     id: null,
@@ -104,7 +108,6 @@ const state = {
     stackIds: []
   },
   savedProjects: [],
-  // Mapa de posiciones de categorías para calcular repulsión con GSAP
   categoryCoords: new Map(),
   camera: {
     currentX: 0,
@@ -131,25 +134,48 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderAll();
 });
 
+// CARGA DE DATOS + DESCUBRIMIENTO AUTOMÁTICO DIARIO EN VIVO
 async function loadAllData() {
   try {
     const prog = localStorage.getItem(KEY_PROGRESS);
     if (prog) state.userProgress = JSON.parse(prog);
 
+    const seenRaw = localStorage.getItem(KEY_SEEN_TOOLS);
+    if (seenRaw) {
+      state.seenToolIds = new Set(JSON.parse(seenRaw));
+    } else {
+      // Al iniciar por primera vez, las 48 herramientas base ya se consideran conocidas y las nuevas salen con NEW
+      state.seenToolIds = new Set(INITIAL_IDS);
+      persistSeenTools();
+    }
+
     const custom = localStorage.getItem(KEY_CUSTOM_TOOLS);
     const customList = custom ? JSON.parse(custom) : [];
 
+    // 1. Intentar leer daily_tools.json generado por GitHub Actions
     let dailyList = [];
     try {
       const res = await fetch('./daily_tools.json', { cache: 'no-store' });
-      if (res.ok) dailyList = await res.json();
+      if (res.ok) {
+        const parsed = await res.json();
+        if (Array.isArray(parsed)) dailyList = parsed;
+      }
     } catch (e) {
       dailyList = [];
     }
 
-    const merged = [...INITIAL_TOOLS, ...dailyList, ...customList];
+    // 2. Motor de respaldo autónomo en el navegador: si daily_tools.json está vacío o hoy no se ha sincronizado,
+    // consulta directamente la API pública de GitHub para que siempre tengas novedades diarias reales.
+    const liveDailyTools = await fetchLiveDailyToolsFromGitHub(dailyList.length === 0);
+
+    const merged = [...INITIAL_TOOLS, ...dailyList, ...liveDailyTools, ...customList];
     const uniqueMap = new Map();
-    merged.forEach(item => uniqueMap.set(item.id, item));
+    merged.forEach(item => {
+      if (!INITIAL_IDS.has(item.id)) {
+        item.isNewAddition = true;
+      }
+      uniqueMap.set(item.id, item);
+    });
     state.tools = Array.from(uniqueMap.values());
 
     const savedProjs = localStorage.getItem(KEY_SAVED_PROJECTS);
@@ -163,6 +189,191 @@ async function loadAllData() {
     }
   } catch (e) {
     state.tools = [...INITIAL_TOOLS];
+  }
+}
+
+// Descubre automáticamente repositorios en tendencia de tu sector una vez al día sin que tengas que hacer nada
+async function fetchLiveDailyToolsFromGitHub(forceIfEmpty = false) {
+  const todayKey = new Date().toISOString().slice(0, 10);
+  try {
+    const cachedRaw = localStorage.getItem(KEY_DAILY_AUTO_CACHE);
+    if (cachedRaw) {
+      const cached = JSON.parse(cachedRaw);
+      if (cached.date === todayKey && Array.isArray(cached.items) && cached.items.length > 0) {
+        return cached.items;
+      }
+    }
+  } catch (e) {}
+
+  try {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    const sinceDate = d.toISOString().slice(0, 10);
+    // Consulta con 4 operadores OR (cumple el límite estricto de la API de GitHub)
+    const query = encodeURIComponent(`(topic:webgl OR topic:threejs OR topic:astro OR topic:tailwindcss) pushed:>=${sinceDate} stars:>=120`);
+    const url = `https://api.github.com/search/repositories?q=${query}&sort=stars&order=desc&per_page=8`;
+
+    const res = await fetch(url, { headers: { 'Accept': 'application/vnd.github+json' } });
+    if (!res.ok) throw new Error('GitHub API limit');
+    const data = await res.json();
+    const items = data.items || [];
+
+    const existingUrls = new Set(INITIAL_TOOLS.map(t => t.url.toLowerCase()));
+    const discovered = [];
+
+    for (const repo of items) {
+      if (!repo.html_url || existingUrls.has(repo.html_url.toLowerCase())) continue;
+
+      const topicsStr = `${repo.description || ''} ${(repo.topics || []).join(' ')}`.toLowerCase();
+      let category = 'frameworks';
+      if (topicsStr.includes('webgl') || topicsStr.includes('three') || topicsStr.includes('3d') || topicsStr.includes('shader')) {
+        category = 'webgl';
+      } else if (topicsStr.includes('animat') || topicsStr.includes('motion') || topicsStr.includes('scroll')) {
+        category = 'motion';
+      } else if (topicsStr.includes('tailwind') || topicsStr.includes('ui') || topicsStr.includes('component')) {
+        category = 'vector';
+      } else if (topicsStr.includes('ai') || topicsStr.includes('database') || topicsStr.includes('sql')) {
+        category = 'backend';
+      }
+
+      const cleanName = repo.name.replace(/[-_]/g, ' ');
+      discovered.push({
+        id: `daily_${repo.id}`,
+        name: cleanName.charAt(0).toUpperCase() + cleanName.slice(1),
+        category,
+        badge: `Tendencia · ★ ${repo.stargazers_count}`,
+        url: repo.html_url,
+        summary: repo.description || 'Tecnología emergente en tendencia dentro de la comunidad de desarrollo web y multiplataforma.',
+        useCase: `Explorar nuevas capacidades de ${category === 'webgl' ? 'gráficos 3D interactivos' : 'desarrollo moderno'} en tus próximos proyectos.`,
+        synergy: `${repo.language || 'TypeScript'} + Vite + Git`,
+        keywords: `nuevo tendencia ${repo.name.toLowerCase()} ${(repo.topics || []).join(' ')}`,
+        snippet: `git clone ${repo.html_url}.git`,
+        isNewAddition: true
+      });
+
+      if (discovered.length >= 4) break;
+    }
+
+    if (discovered.length > 0) {
+      localStorage.setItem(KEY_DAILY_AUTO_CACHE, JSON.stringify({ date: todayKey, items: discovered }));
+      return discovered;
+    }
+  } catch (err) {}
+
+  // Respaldo garantizado si estás sin conexión o GitHub limita peticiones
+  if (forceIfEmpty) {
+    return [
+      {
+        id: 'daily_tresjs',
+        name: 'TresJS',
+        category: 'webgl',
+        badge: 'Tendencia · Escenas 3D',
+        url: 'https://tresjs.org/',
+        summary: ' Crea escenas 3D declarativas con Three.js usando componentes reactivos de forma limpia y rápida.',
+        useCase: 'Integrar mundos 3D interactivos en aplicaciones web modernas sin código imperativo complejo.',
+        synergy: 'Three.js + Vite + TypeScript',
+        keywords: 'nuevo tendencia tresjs 3d webgl componentes',
+        snippet: `npm install @tresjs/core three`,
+        isNewAddition: true
+      },
+      {
+        id: 'daily_million',
+        name: 'Million.js',
+        category: 'frameworks',
+        badge: 'Tendencia · Optimizador UI',
+        url: 'https://million.dev/',
+        summary: 'Compilador y optimizador automático que acelera el renderizado de componentes web hasta un 70%.',
+        useCase: 'Asegurar 60 FPS constantes en aplicaciones con muchas tarjetas o nodos interactivos.',
+        synergy: 'React + Next.js + Vite',
+        keywords: 'nuevo tendencia million rendimiento velocidad',
+        snippet: `npx million@latest`,
+        isNewAddition: true
+      },
+      {
+        id: 'daily_lenis_snap',
+        name: 'Lenis Snap',
+        category: 'motion',
+        badge: 'Tendencia · Scroll Magnético',
+        url: 'https://github.com/darkroomengineering/lenis',
+        summary: 'Extensión oficial de Lenis para acoplar magnéticamente secciones de la página durante el scroll inercial.',
+        useCase: 'Portfolios donde cada proyecto encaja suavemente a pantalla completa al hacer scroll.',
+        synergy: 'Lenis + GSAP + Astro',
+        keywords: 'nuevo tendencia lenis snap scroll magnetico',
+        snippet: `import Snap from "lenis/snap";`,
+        isNewAddition: true
+      }
+    ];
+  }
+  return [];
+}
+
+function persistSeenTools() {
+  localStorage.setItem(KEY_SEEN_TOOLS, JSON.stringify(Array.from(state.seenToolIds)));
+}
+
+function isToolUnreadNew(tool) {
+  const cleanName = tool.name.includes('[NUEVO]');
+  return (tool.isNewAddition || cleanName || !INITIAL_IDS.has(tool.id)) && !state.seenToolIds.has(tool.id);
+}
+
+// Marca una tecnología como leída en cuanto pasas el ratón y se abre su tarjeta
+function markToolAsSeen(toolId) {
+  if (state.seenToolIds.has(toolId)) return;
+  state.seenToolIds.add(toolId);
+  persistSeenTools();
+
+  // Quitar suavemente la insignia NEW del nodo en pantalla sin recargar todo el árbol
+  const nodeEl = document.querySelector(`.node-tool[data-tool-id="${toolId}"]`);
+  if (nodeEl) {
+    nodeEl.classList.remove('unread-new-node');
+    const badge = nodeEl.querySelector('.new-badge');
+    if (badge) {
+      if (window.gsap) {
+        gsap.to(badge, {
+          scale: 0,
+          opacity: 0,
+          duration: 0.25,
+          onComplete: () => badge.remove()
+        });
+      } else {
+        badge.remove();
+      }
+    }
+  }
+
+  updateCategoryAndTopNewBadges();
+}
+
+function updateCategoryAndTopNewBadges() {
+  let totalUnread = 0;
+
+  CATEGORIES.forEach(cat => {
+    const unreadInCat = state.tools.filter(t => t.category === cat.id && isToolUnreadNew(t)).length;
+    totalUnread += unreadInCat;
+
+    const catNode = document.querySelector(`.node-category[data-cat-id="${cat.id}"]`);
+    if (catNode) {
+      let pill = catNode.querySelector('.cat-new-pill');
+      if (unreadInCat > 0) {
+        if (!pill) {
+          pill = document.createElement('span');
+          pill.className = 'cat-new-pill';
+          catNode.appendChild(pill);
+        }
+        pill.textContent = `✨ ${unreadInCat} NEW`;
+      } else if (pill) {
+        pill.remove();
+      }
+    }
+  });
+
+  const topPill = document.getElementById('unreadCounterPill');
+  const topText = document.getElementById('unreadCountText');
+  if (totalUnread > 0) {
+    topPill.style.display = 'inline-flex';
+    topText.textContent = `${totalUnread} ${totalUnread === 1 ? 'nueva sin leer' : 'nuevas sin leer'}`;
+  } else {
+    topPill.style.display = 'none';
   }
 }
 
@@ -201,25 +412,35 @@ function isToolVisibleByFilter(tool) {
   return true;
 }
 
-// MOTOR DE CÁMARA FLUIDA LERP A 60 FPS
+// MOTOR DE CÁMARA FLUIDA Y NÍTIDA (Re-rasteriza vectores al detenerse para nitidez 100%)
 function startSmoothCameraLoop() {
   const stage = document.getElementById('treeStage');
   const readout = document.getElementById('zoomReadout');
+  let isSettled = false;
 
   function step() {
     const cam = state.camera;
-    const lerpFactor = cam.isDragging ? 0.38 : 0.16;
+    const lerpFactor = cam.isDragging ? 0.4 : 0.18;
 
     const dx = cam.targetX - cam.currentX;
     const dy = cam.targetY - cam.currentY;
     const ds = cam.targetScale - cam.currentScale;
 
-    if (Math.abs(dx) > 0.05 || Math.abs(dy) > 0.05 || Math.abs(ds) > 0.0005) {
+    if (Math.abs(dx) > 0.08 || Math.abs(dy) > 0.08 || Math.abs(ds) > 0.0004) {
+      isSettled = false;
       cam.currentX += dx * lerpFactor;
       cam.currentY += dy * lerpFactor;
       cam.currentScale += ds * lerpFactor;
 
-      stage.style.transform = `translate3d(${cam.currentX.toFixed(2)}px, ${cam.currentY.toFixed(2)}px, 0) scale(${cam.currentScale.toFixed(4)})`;
+      // Usamos transform 2D para que el navegador re-renderice las fuentes vectoriales a la escala real
+      stage.style.transform = `translate(${cam.currentX.toFixed(1)}px, ${cam.currentY.toFixed(1)}px) scale(${cam.currentScale.toFixed(4)})`;
+      readout.textContent = `${Math.round(cam.currentScale * 100)}%`;
+    } else if (!isSettled) {
+      isSettled = true;
+      cam.currentX = Math.round(cam.targetX);
+      cam.currentY = Math.round(cam.targetY);
+      cam.currentScale = Number(cam.targetScale.toFixed(3));
+      stage.style.transform = `translate(${cam.currentX}px, ${cam.currentY}px) scale(${cam.currentScale})`;
       readout.textContent = `${Math.round(cam.currentScale * 100)}%`;
     }
 
@@ -234,31 +455,32 @@ function centerCamera(instant = false) {
   const vw = viewport.clientWidth || window.innerWidth;
   const vh = viewport.clientHeight || (window.innerHeight - 106);
 
-  const targetScale = vw < 1200 ? 0.58 : 0.72;
+  const targetScale = vw < 1200 ? 0.6 : 0.75;
   const anchorY = state.layout === 'matrix' ? 820 : 1300;
 
   state.camera.targetScale = targetScale;
-  state.camera.targetX = vw / 2 - 1800 * targetScale;
-  state.camera.targetY = vh / 2 - anchorY * targetScale;
+  state.camera.targetX = Math.round(vw / 2 - 1800 * targetScale);
+  state.camera.targetY = Math.round(vh / 2 - anchorY * targetScale);
 
   if (instant) {
     state.camera.currentScale = state.camera.targetScale;
     state.camera.currentX = state.camera.targetX;
     state.camera.currentY = state.camera.targetY;
     const stage = document.getElementById('treeStage');
-    stage.style.transform = `translate3d(${state.camera.currentX}px, ${state.camera.currentY}px, 0) scale(${state.camera.currentScale})`;
+    stage.style.transform = `translate(${state.camera.currentX}px, ${state.camera.currentY}px) scale(${state.camera.currentScale})`;
   }
 }
 
 function applyZoomAtPoint(newScale, mouseX, mouseY) {
-  const clamped = Math.min(1.6, Math.max(0.32, newScale));
+  // Permite acercar hasta 280% (2.8x) manteniendo nitidez vectorial
+  const clamped = Math.min(2.8, Math.max(0.32, newScale));
   const ratio = clamped / state.camera.targetScale;
   state.camera.targetX = mouseX - (mouseX - state.camera.targetX) * ratio;
   state.camera.targetY = mouseY - (mouseY - state.camera.targetY) * ratio;
   state.camera.targetScale = clamped;
 }
 
-// PUNTO 1: MOTOR GSAP PARA ILUMINAR Y APARTAR (REPELER) LAS DEMÁS RAMAS AL PASAR EL CURSOR
+// MOTOR GSAP PARA ILUMINAR Y APARTAR LAS DEMÁS RAMAS AL PASAR EL CURSOR
 function focusBranchWithGSAP(activeCatId, specificToolId = null) {
   const svg = document.getElementById('treeSvg');
   const activeCoords = state.categoryCoords.get(activeCatId);
@@ -271,7 +493,6 @@ function focusBranchWithGSAP(activeCatId, specificToolId = null) {
     if (!nodeGroup || !svgGroup || !catCoords) return;
 
     if (cat.id === activeCatId) {
-      // Rama activa: posición original centrada y opacidad total
       if (window.gsap) {
         gsap.to([nodeGroup, svgGroup], {
           x: 0,
@@ -283,7 +504,6 @@ function focusBranchWithGSAP(activeCatId, specificToolId = null) {
         });
       }
 
-      // Iluminar curvas correspondientes
       svgGroup.querySelectorAll('path').forEach(p => {
         const edgeName = p.getAttribute('data-edge');
         const shouldGlow = !specificToolId || edgeName === `cat-${cat.id}` || edgeName === `tool-${specificToolId}`;
@@ -295,15 +515,13 @@ function focusBranchWithGSAP(activeCatId, specificToolId = null) {
         }
       });
     } else {
-      // Ramas vecinas: se apartan suavemente en dirección opuesta a la rama activa y atenúan su brillo
       let dx = catCoords.x - activeCoords.x;
       let dy = catCoords.y - activeCoords.y;
       const dist = Math.hypot(dx, dy) || 1;
 
-      // Cuanto más cerca esté la rama vecina, más claro es el empuje (entre 14px y 26px)
       const pushStrength = Math.max(12, Math.min(26, 9500 / dist));
-      const offsetX = (dx / dist) * pushStrength;
-      const offsetY = state.layout === 'matrix' ? 6 : (dy / dist) * pushStrength;
+      const offsetX = Math.round((dx / dist) * pushStrength);
+      const offsetY = state.layout === 'matrix' ? 6 : Math.round((dy / dist) * pushStrength);
 
       if (window.gsap) {
         gsap.to([nodeGroup, svgGroup], {
@@ -345,16 +563,15 @@ function resetBranchesWithGSAP() {
   });
 }
 
-// PUNTOS 2, 3 Y 4: TARJETA DERECHA DE VISTA RÁPIDA CON GSAP TIMELINES Y HOVER SIN CLIC
+// TARJETA DERECHA DE VISTA RÁPIDA (Marca como vista la tecnología NEW al abrirse)
 function scheduleShowTechCard(toolId) {
   clearTimeout(hoverCloseTimer);
-  // Si la tarjeta está fijada por clic en otra herramienta, respetamos el bloqueo hasta que haga clic en otra o la desfije
   if (state.isCardPinned && state.activeToolId !== toolId) return;
 
   clearTimeout(hoverOpenTimer);
   hoverOpenTimer = setTimeout(() => {
     openTechCard(toolId, state.isCardPinned);
-  }, 40);
+  }, 45);
 }
 
 function scheduleHideTechCard() {
@@ -370,6 +587,9 @@ function openTechCard(toolId, pinIt = false) {
   const tool = state.tools.find(t => t.id === toolId);
   if (!tool) return;
 
+  // En cuanto el usuario pasa el ratón y se muestra la tarjeta, se marca como leída y se quita el icono NEW
+  markToolAsSeen(toolId);
+
   const card = document.getElementById('techCard');
   const isSwitchingContent = state.isCardVisible && state.activeToolId !== toolId;
   const isAlreadyShowingSame = state.isCardVisible && state.activeToolId === toolId;
@@ -382,7 +602,6 @@ function openTechCard(toolId, pinIt = false) {
   card.classList.toggle('pinned', state.isCardPinned);
   card.setAttribute('aria-hidden', 'false');
 
-  // Marcar nodo activo en el lienzo
   document.querySelectorAll('.node-tool').forEach(el => {
     el.classList.toggle('selected', el.dataset.toolId === toolId);
   });
@@ -391,12 +610,11 @@ function openTechCard(toolId, pinIt = false) {
 
   if (!window.gsap) {
     card.style.opacity = '1';
-    card.style.transform = 'translate3d(0,0,0)';
+    card.style.transform = 'translate(0,0)';
     return;
   }
 
   if (!isSwitchingContent && !isAlreadyShowingSame) {
-    // Entrada limpia desde la derecha con GSAP
     gsap.killTweensOf(card);
     gsap.fromTo(
       card,
@@ -409,7 +627,6 @@ function openTechCard(toolId, pinIt = false) {
       { opacity: 1, y: 0, duration: 0.28, stagger: 0.03, ease: 'power2.out' }
     );
   } else if (isSwitchingContent) {
-    // Si ya estaba abierta y pasamos el ratón a otra tecnología: micro-transición fluida del interior
     gsap.killTweensOf(card.querySelectorAll('.tc-anim-item'));
     gsap.fromTo(
       card.querySelectorAll('.tc-anim-item'),
@@ -427,7 +644,7 @@ function populateTechCardDOM(tool) {
 
   card.style.setProperty('--tc-color', color);
   document.getElementById('tcCategory').textContent = cat ? cat.name : 'TECNOLOGÍA';
-  document.getElementById('tcTitle').textContent = tool.name;
+  document.getElementById('tcTitle').textContent = tool.name.replace(' [NUEVO]', '');
   document.getElementById('tcBadge').textContent = tool.badge;
   document.getElementById('tcUrl').href = tool.url;
   document.getElementById('tcSummary').textContent = tool.summary;
@@ -435,14 +652,12 @@ function populateTechCardDOM(tool) {
   document.getElementById('tcSnippet').textContent = tool.snippet || `// Ver documentación en ${tool.url}`;
   document.getElementById('tcNotes').value = prog.notes || '';
 
-  // Convertir texto de sinergias en píldoras visuales
   const chipsContainer = document.getElementById('tcSynergyChips');
   const rawSynergies = (tool.synergy || 'HTML + CSS + JS').split(/[+,/]/).map(s => s.trim()).filter(Boolean);
   chipsContainer.innerHTML = rawSynergies
     .map(s => `<span class="tc-syn-chip">${s}</span>`)
     .join('');
 
-  // Estado de dominio
   document.querySelectorAll('#tcStatusGroup .tc-status-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.status === prog.status);
   });
@@ -488,9 +703,10 @@ function renderAll() {
   renderBento();
   renderStackDock();
   renderSavedProjectsList();
+  updateCategoryAndTopNewBadges();
 }
 
-// RENDERIZADO DEL ÁRBOL AGRUPADO POR RAMAS PARA FÍSICAS GSAP
+// RENDERIZADO DEL ÁRBOL
 function renderTree() {
   const svg = document.getElementById('treeSvg');
   const nodesLayer = document.getElementById('treeNodes');
@@ -528,10 +744,11 @@ function renderTree() {
       CATEGORIES.forEach(c => state.expandedCategories.add(c.id));
     }
     renderTree();
+    updateCategoryAndTopNewBadges();
   });
   nodesLayer.appendChild(rootEl);
 
-  // 2. CREACIÓN DE LAS 8 RAMAS EN GRUPOS INDEPENDIENTES
+  // 2. CREACIÓN DE LAS 8 RAMAS
   CATEGORIES.forEach((cat, catIdx) => {
     const allCatTools = state.tools.filter(t => t.category === cat.id);
     const visibleCatTools = allCatTools.filter(t => isToolVisibleByFilter(t));
@@ -548,7 +765,7 @@ function renderTree() {
     const isLeftSide = catIdx < 4;
 
     if (state.layout === 'matrix') {
-      const colOffset = (catIdx - 3.5) * 242;
+      const colOffset = Math.round((catIdx - 3.5) * 244);
       catX = centerX + colOffset;
       catY = 740;
     } else if (state.layout === 'wing') {
@@ -560,13 +777,12 @@ function renderTree() {
     } else if (state.layout === 'orbital') {
       const angle = (catIdx / CATEGORIES.length) * Math.PI * 2 - Math.PI / 2;
       const radiusCat = 420;
-      catX = centerX + Math.cos(angle) * radiusCat;
-      catY = rootY + Math.sin(angle) * radiusCat;
+      catX = Math.round(centerX + Math.cos(angle) * radiusCat);
+      catY = Math.round(rootY + Math.sin(angle) * radiusCat);
     }
 
     state.categoryCoords.set(cat.id, { x: catX, y: catY });
 
-    // Grupo SVG y Grupo HTML exclusivos para esta rama (permite mover la rama entera con GSAP)
     const branchSvgGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     branchSvgGroup.setAttribute('class', 'branch-svg-group');
     branchSvgGroup.setAttribute('data-cat-id', cat.id);
@@ -577,7 +793,6 @@ function renderTree() {
     branchNodeGroup.dataset.catId = cat.id;
     nodesLayer.appendChild(branchNodeGroup);
 
-    // Curva Esfera Central -> Categoría
     drawConnection(
       branchSvgGroup,
       centerX,
@@ -591,12 +806,16 @@ function renderTree() {
       catIdx * 0.45
     );
 
+    const unreadCountInCat = allCatTools.filter(t => isToolUnreadNew(t)).length;
+
     const catEl = document.createElement('div');
     catEl.className = `node node-category ${!hasVisibleItems ? 'dimmed' : ''}`;
+    catEl.dataset.catId = cat.id;
     catEl.style.left = `${catX}px`;
     catEl.style.top = `${catY}px`;
     catEl.style.setProperty('--cat-color', cat.color);
     catEl.innerHTML = `
+      ${unreadCountInCat > 0 ? `<span class="cat-new-pill">✨ ${unreadCountInCat} NEW</span>` : ''}
       <div class="node-category-top">
         <span class="node-category-title">${cat.name}</span>
         <span class="cat-chevron">${isExpanded ? '▾' : '▸'}</span>
@@ -615,40 +834,48 @@ function renderTree() {
         state.expandedCategories.add(cat.id);
       }
       renderTree();
+      updateCategoryAndTopNewBadges();
     });
 
     branchNodeGroup.appendChild(catEl);
 
     if (!isExpanded) return;
 
-    // 3. NODOS DE TECNOLOGÍA DE ESTA RAMA
-    visibleCatTools.forEach((tool, toolIdx) => {
+    // 3. NODOS DE TECNOLOGÍA DE ESTA RAMA (Ordenados poniendo las novedades NEW arriba)
+    const sortedTools = [...visibleCatTools].sort((a, b) => {
+      const aNew = isToolUnreadNew(a) ? 1 : 0;
+      const bNew = isToolUnreadNew(b) ? 1 : 0;
+      return bNew - aNew;
+    });
+
+    sortedTools.forEach((tool, toolIdx) => {
       let toolX = catX;
       let toolY = catY;
 
       if (state.layout === 'matrix') {
         toolX = catX;
-        toolY = catY + 115 + toolIdx * 76;
+        toolY = Math.round(catY + 116 + toolIdx * 76);
       } else if (state.layout === 'wing') {
         const sideSign = isLeftSide ? -1 : 1;
-        const spreadY = (toolIdx - (visibleCatTools.length - 1) / 2) * 70;
+        const spreadY = Math.round((toolIdx - (sortedTools.length - 1) / 2) * 70);
         toolX = catX + sideSign * 410;
         toolY = catY + spreadY;
       } else if (state.layout === 'orbital') {
         const baseAngle = (catIdx / CATEGORIES.length) * Math.PI * 2 - Math.PI / 2;
         const spread = 0.55;
-        const offset = visibleCatTools.length > 1
-          ? ((toolIdx / (visibleCatTools.length - 1)) - 0.5) * spread
+        const offset = sortedTools.length > 1
+          ? ((toolIdx / (sortedTools.length - 1)) - 0.5) * spread
           : 0;
         const angle = baseAngle + offset;
         const radiusTool = 840;
-        toolX = centerX + Math.cos(angle) * radiusTool;
-        toolY = rootY + Math.sin(angle) * radiusTool;
+        toolX = Math.round(centerX + Math.cos(angle) * radiusTool);
+        toolY = Math.round(rootY + Math.sin(angle) * radiusTool);
       }
 
+      const isUnreadNew = isToolUnreadNew(tool);
       const isRecommended = state.recommendedIds.includes(tool.id);
       const inStack = state.currentProject.stackIds.includes(tool.id);
-      const edgeColor = inStack ? '#10b981' : (isRecommended ? '#fbbf24' : cat.color);
+      const edgeColor = inStack ? '#10b981' : (isUnreadNew ? '#f43f5e' : (isRecommended ? '#fbbf24' : cat.color));
 
       drawConnection(
         branchSvgGroup,
@@ -668,6 +895,7 @@ function renderTree() {
       toolEl.className = [
         'node node-tool',
         state.activeToolId === tool.id ? 'selected' : '',
+        isUnreadNew ? 'unread-new-node' : '',
         isRecommended ? 'recommended' : '',
         inStack ? 'in-stack-node' : ''
       ].join(' ').trim();
@@ -677,13 +905,16 @@ function renderTree() {
       toolEl.style.top = `${toolY}px`;
       toolEl.style.setProperty('--cat-color', cat.color);
 
+      const newHtml = isUnreadNew ? `<span class="new-badge">✨ NEW</span>` : '';
       const dotHtml = prog.status !== 'none' ? `<span class="status-dot ${prog.status}"></span>` : '';
       const recHtml = isRecommended ? `<span class="rec-star">★</span>` : '';
+      const displayName = tool.name.replace(' [NUEVO]', '');
 
       toolEl.innerHTML = `
         <div class="node-tool-top">
-          <span class="node-tool-name">${tool.name}</span>
+          <span class="node-tool-name">${displayName}</span>
           <div class="node-tool-actions">
+            ${newHtml}
             ${recHtml}
             ${dotHtml}
             <button type="button" class="node-stack-btn ${inStack ? 'in-stack' : ''}">
@@ -694,7 +925,6 @@ function renderTree() {
         <div class="node-tool-badge">${tool.badge}</div>
       `;
 
-      // Hover sin clic: ilumina la rama, aparta las demás y despliega la tarjeta derecha
       toolEl.addEventListener('mouseenter', () => {
         focusBranchWithGSAP(cat.id, tool.id);
         catEl.classList.add('cat-highlighted');
@@ -712,7 +942,6 @@ function renderTree() {
         toggleToolInStack(tool.id);
       });
 
-      // Clic: fija o desfija la tarjeta derecha para trabajar cómodamente con ella
       toolEl.addEventListener('click', (e) => {
         e.stopPropagation();
         if (state.activeToolId === tool.id && state.isCardPinned) {
@@ -725,12 +954,11 @@ function renderTree() {
 
       branchNodeGroup.appendChild(toolEl);
 
-      // Animación suave de aparición con GSAP al desplegar la rama
       if (window.gsap) {
         gsap.fromTo(
           toolEl,
-          { opacity: 0, scale: 0.86 },
-          { opacity: 1, scale: 1, duration: 0.3, delay: toolIdx * 0.03, ease: 'back.out(1.4)' }
+          { opacity: 0, scale: 0.88 },
+          { opacity: 1, scale: 1, duration: 0.28, delay: toolIdx * 0.025, ease: 'power2.out' }
         );
       }
     });
@@ -765,7 +993,7 @@ function drawConnection(svgGroup, x1, y1, x2, y2, color, isDimmed, edgeKey, isVe
   }
 }
 
-// RENDERIZADO CUADRÍCULA BENTO (También compatible con hover de la tarjeta derecha)
+// RENDERIZADO CUADRÍCULA BENTO
 function renderBento() {
   const container = document.getElementById('bentoContainer');
   container.innerHTML = '';
@@ -787,14 +1015,19 @@ function renderBento() {
     tools.forEach(tool => {
       const inStack = state.currentProject.stackIds.includes(tool.id);
       const isRec = state.recommendedIds.includes(tool.id);
+      const isUnread = isToolUnreadNew(tool);
+      const displayName = tool.name.replace(' [NUEVO]', '');
 
       const card = document.createElement('article');
       card.className = 'bento-card';
       card.style.setProperty('--cat-color', cat.color);
       card.innerHTML = `
         <div class="bento-card-header">
-          <div class="bento-card-title">${isRec ? '★ ' : ''}${tool.name}</div>
-          <span class="bento-card-badge">${tool.badge}</span>
+          <div class="bento-card-title">${isRec ? '★ ' : ''}${displayName}</div>
+          <div style="display:flex; gap:6px; align-items:center;">
+            ${isUnread ? '<span class="new-badge">✨ NEW</span>' : ''}
+            <span class="bento-card-badge">${tool.badge}</span>
+          </div>
         </div>
         <p class="bento-card-summary">${tool.summary}</p>
         <div class="bento-card-footer">
@@ -805,7 +1038,11 @@ function renderBento() {
         </div>
       `;
 
-      card.addEventListener('mouseenter', () => scheduleShowTechCard(tool.id));
+      card.addEventListener('mouseenter', () => {
+        scheduleShowTechCard(tool.id);
+        const nb = card.querySelector('.new-badge');
+        if (nb) nb.remove();
+      });
       card.addEventListener('mouseleave', () => scheduleHideTechCard());
 
       card.querySelector('.node-stack-btn').addEventListener('click', (e) => {
@@ -820,7 +1057,7 @@ function renderBento() {
   });
 }
 
-// MOTOR DEL ASESOR DE PROYECTOS (En la ventana independiente izquierda)
+// MOTOR DEL ASESOR DE PROYECTOS
 function runProjectAdvisor(rawText) {
   const text = rawText.toLowerCase().trim();
   state.currentProject.description = rawText.trim();
@@ -903,7 +1140,7 @@ function runProjectAdvisor(rawText) {
     row.className = 'rec-item';
     row.innerHTML = `
       <div class="rec-item-info">
-        <span class="rec-item-name">★ ${tool.name}</span>
+        <span class="rec-item-name">★ ${tool.name.replace(' [NUEVO]', '')}</span>
         <span class="rec-item-sub">${tool.badge}</span>
       </div>
       <button type="button" class="node-stack-btn ${inStack ? 'in-stack' : ''}">
@@ -964,7 +1201,7 @@ function renderStackDock() {
     if (!tool) return;
     const chip = document.createElement('span');
     chip.className = 'stack-chip';
-    chip.innerHTML = `${tool.name} <button type="button">✕</button>`;
+    chip.innerHTML = `${tool.name.replace(' [NUEVO]', '')} <button type="button">✕</button>`;
     chip.querySelector('button').addEventListener('click', () => toggleToolInStack(id));
     chipsContainer.appendChild(chip);
   });
@@ -1077,7 +1314,7 @@ function renderSavedProjectsList() {
   state.savedProjects.forEach(proj => {
     const isCurrent = state.currentProject.id === proj.id;
     const toolNames = proj.stackIds
-      .map(id => state.tools.find(t => t.id === id)?.name)
+      .map(id => state.tools.find(t => t.id === id)?.name.replace(' [NUEVO]', ''))
       .filter(Boolean)
       .join(', ');
 
@@ -1120,9 +1357,8 @@ function populateModalCategories() {
   select.innerHTML = CATEGORIES.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
 }
 
-// ENLACE DE TODOS LOS EVENTOS
+// ENLACE DE EVENTOS
 function bindEvents() {
-  // Cambio Árbol / Bento
   document.getElementById('btnViewTree').addEventListener('click', () => {
     state.view = 'tree';
     document.getElementById('btnViewTree').classList.add('active');
@@ -1139,7 +1375,14 @@ function bindEvents() {
     document.getElementById('treeViewport').classList.remove('active');
   });
 
-  // Panel Izquierdo: Asesor & Proyectos
+  // Al pulsar el contador superior de "nuevas sin leer", despliega automáticamente las ramas que tienen novedades
+  document.getElementById('unreadCounterPill').addEventListener('click', () => {
+    state.tools.forEach(t => {
+      if (isToolUnreadNew(t)) state.expandedCategories.add(t.category);
+    });
+    renderAll();
+  });
+
   const studioPanel = document.getElementById('studioPanel');
   const launcherBtn = document.getElementById('btnToggleStudio');
 
@@ -1159,7 +1402,6 @@ function bindEvents() {
     tabBtn.addEventListener('click', () => switchStudioTab(tabBtn.dataset.tab));
   });
 
-  // Interacción con la Tarjeta Derecha de Tecnología (mantener abierta si el ratón entra en ella)
   const techCard = document.getElementById('techCard');
   techCard.addEventListener('mouseenter', () => {
     clearTimeout(hoverCloseTimer);
@@ -1208,7 +1450,6 @@ function bindEvents() {
     setTimeout(() => { btn.textContent = 'Copiar'; }, 1400);
   });
 
-  // Disposiciones del Árbol
   const setLayout = (mode) => {
     state.layout = mode;
     document.getElementById('btnLayoutMatrix').classList.toggle('active', mode === 'matrix');
@@ -1224,7 +1465,7 @@ function bindEvents() {
 
   document.getElementById('btnExpandAll').addEventListener('click', () => {
     CATEGORIES.forEach(c => state.expandedCategories.add(c.id));
-    renderTree();
+    renderAll();
   });
 
   document.getElementById('btnCollapseAll').addEventListener('click', () => {
@@ -1239,7 +1480,6 @@ function bindEvents() {
     renderAll();
   });
 
-  // Pan & Zoom sobre el lienzo
   const treeViewport = document.getElementById('treeViewport');
 
   treeViewport.addEventListener('mousedown', (e) => {
@@ -1264,19 +1504,18 @@ function bindEvents() {
   treeViewport.addEventListener('wheel', (e) => {
     e.preventDefault();
     const rect = treeViewport.getBoundingClientRect();
-    const factor = e.deltaY < 0 ? 1.1 : 0.9;
+    const factor = e.deltaY < 0 ? 1.12 : 0.89;
     applyZoomAtPoint(state.camera.targetScale * factor, e.clientX - rect.left, e.clientY - rect.top);
   }, { passive: false });
 
   document.getElementById('btnZoomIn').addEventListener('click', () => {
-    applyZoomAtPoint(state.camera.targetScale * 1.18, treeViewport.clientWidth / 2, treeViewport.clientHeight / 2);
+    applyZoomAtPoint(state.camera.targetScale * 1.2, treeViewport.clientWidth / 2, treeViewport.clientHeight / 2);
   });
   document.getElementById('btnZoomOut').addEventListener('click', () => {
     applyZoomAtPoint(state.camera.targetScale * 0.84, treeViewport.clientWidth / 2, treeViewport.clientHeight / 2);
   });
   document.getElementById('btnResetCamera').addEventListener('click', () => centerCamera(false));
 
-  // Eventos del Asesor y Proyectos
   document.getElementById('projectNameInput').addEventListener('input', (e) => {
     state.currentProject.name = e.target.value;
     persistActiveProject();
@@ -1320,7 +1559,6 @@ function bindEvents() {
   });
   document.getElementById('btnNewBlankProject').addEventListener('click', startNewBlankProject);
 
-  // Stack Lab Inferior
   document.getElementById('btnToggleStackFocus').addEventListener('click', () => {
     if (state.currentProject.stackIds.length === 0 && !state.stackFocusMode) {
       alert('Añade primero al menos una tecnología a tu Stack Lab (o usa el Asesor) para activar el Modo Enfoque.');
@@ -1347,7 +1585,6 @@ function bindEvents() {
     renderAll();
   });
 
-  // Modal Añadir Tecnología
   const modal = document.getElementById('modalBackdrop');
   document.getElementById('btnOpenModal').addEventListener('click', () => modal.classList.add('open'));
   document.getElementById('btnCloseModal').addEventListener('click', () => modal.classList.remove('open'));
@@ -1365,7 +1602,8 @@ function bindEvents() {
       useCase: document.getElementById('toolUseCase').value.trim(),
       synergy: document.getElementById('toolSynergy').value.trim() || 'Stack Personalizado',
       keywords: document.getElementById('toolKeywords').value.trim(),
-      snippet: document.getElementById('toolSnippet').value.trim()
+      snippet: document.getElementById('toolSnippet').value.trim(),
+      isNewAddition: true
     };
 
     state.tools.push(newTool);
@@ -1378,7 +1616,6 @@ function bindEvents() {
     e.target.reset();
     modal.classList.remove('open');
     renderAll();
-    openTechCard(newTool.id, true);
   });
 
   document.getElementById('btnExportJson').addEventListener('click', () => {

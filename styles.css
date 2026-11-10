@@ -1,7 +1,7 @@
 :root {
   --bg-base: #05070c;
   --bg-surface: rgba(13, 18, 29, 0.88);
-  --bg-elevated: rgba(18, 25, 40, 0.95);
+  --bg-elevated: rgba(18, 25, 40, 0.96);
   --border-subtle: rgba(255, 255, 255, 0.08);
   --border-highlight: rgba(255, 255, 255, 0.2);
   --text-main: #f8fafc;
@@ -13,6 +13,7 @@
   --accent-secondary: #a855f7;
   --accent-gold: #fbbf24;
   --accent-emerald: #10b981;
+  --accent-new: #f43f5e;
 
   --status-mastered: #10b981;
   --status-practicing: #f59e0b;
@@ -41,6 +42,7 @@ body {
   flex-direction: column;
   user-select: none;
   -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
 }
 
 /* Fondo ambiental */
@@ -169,7 +171,6 @@ body {
   font-family: var(--font-mono);
 }
 
-/* Botón lanzador del Asesor a la izquierda */
 .btn-advisor-launcher {
   display: inline-flex;
   align-items: center;
@@ -192,6 +193,29 @@ body {
   background: rgba(251, 191, 36, 0.22);
   border-color: var(--accent-gold);
   box-shadow: 0 0 18px -4px rgba(251, 191, 36, 0.45);
+  color: #fff;
+}
+
+/* Indicador superior de novedades sin leer */
+.unread-counter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 11px;
+  border-radius: 999px;
+  background: rgba(244, 63, 94, 0.14);
+  border: 1px solid rgba(244, 63, 94, 0.45);
+  color: #fda4af;
+  font-family: var(--font-mono);
+  font-size: 0.71rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.unread-counter-pill:hover {
+  background: rgba(244, 63, 94, 0.24);
   color: #fff;
 }
 
@@ -247,7 +271,7 @@ body {
   outline: none;
   color: var(--text-main);
   font-size: 0.8rem;
-  width: 170px;
+  width: 165px;
 }
 
 .btn-primary,
@@ -299,7 +323,7 @@ body {
   font-size: 0.7rem;
 }
 
-/* WORKSPACE Y LIENZO */
+/* WORKSPACE Y LIENZO CON RENDERIZADO VECTORIAL NÍTIDO */
 .workspace {
   position: relative;
   flex: 1;
@@ -392,6 +416,7 @@ body {
   pointer-events: none;
 }
 
+/* CORRECCIÓN DE NITIDEZ: Sin will-change ni translate3d que congelaban la textura bitmap */
 .tree-stage {
   position: absolute;
   top: 0;
@@ -399,8 +424,6 @@ body {
   width: 3600px;
   height: 2600px;
   transform-origin: 0 0;
-  will-change: transform;
-  backface-visibility: hidden;
 }
 
 .tree-svg {
@@ -412,7 +435,6 @@ body {
   pointer-events: none;
 }
 
-/* PUNTO 1: CURVAS BÉZIER CON PARTÍCULAS DE PULSO SUTILES */
 .edge-base {
   fill: none;
   stroke-width: 1.6;
@@ -420,7 +442,6 @@ body {
   transition: opacity 0.25s ease, stroke-width 0.25s ease;
 }
 
-/* Partículas / puntos luminosos viajando sutilmente por las ramas */
 .edge-pulse {
   fill: none;
   stroke-width: 3.4;
@@ -437,7 +458,6 @@ body {
   to { stroke-dashoffset: 0; }
 }
 
-/* Iluminación intensa cuando el ratón entra en la rama o nodo */
 .edge-active-base {
   opacity: 0.88 !important;
   stroke-width: 2.8px !important;
@@ -460,32 +480,27 @@ body {
   inset: 0;
 }
 
-/* Grupos de rama para animar repulsión con GSAP */
 .branch-node-group {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  will-change: transform, opacity;
 }
 
 .branch-node-group .node {
   pointer-events: auto;
 }
 
-.branch-svg-group {
-  will-change: transform, opacity;
-}
-
-/* NODOS DEL ÁRBOL */
+/* NODOS ALINEADOS A PÍXEL ENTERO (Sin translate(-50%, -50%) para evitar subpíxeles borrosos) */
 .node {
   position: absolute;
-  transform: translate3d(-50%, -50%, 0);
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
 .node-root {
-  width: 188px;
-  height: 188px;
+  width: 190px;
+  height: 190px;
+  margin-left: -95px;
+  margin-top: -95px;
   border-radius: 50%;
   background: radial-gradient(circle at 30% 30%, rgba(56, 189, 248, 0.26), rgba(10, 15, 28, 0.98));
   border: 2px solid rgba(56, 189, 248, 0.72);
@@ -538,7 +553,9 @@ body {
 
 .node-category {
   width: 220px;
-  height: 66px;
+  height: 68px;
+  margin-left: -110px;
+  margin-top: -34px;
   background: var(--bg-elevated);
   border: 1.5px solid var(--cat-color);
   box-shadow: 0 8px 22px -6px rgba(0, 0, 0, 0.7), 0 0 16px -6px var(--cat-color);
@@ -585,10 +602,29 @@ body {
   margin-top: 3px;
 }
 
+/* Insignia NEW flotante en Categorías que contienen novedades sin leer */
+.cat-new-pill {
+  position: absolute;
+  top: -10px;
+  right: -8px;
+  background: linear-gradient(135deg, #f43f5e, #fb7185);
+  color: #ffffff;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  box-shadow: 0 0 12px rgba(244, 63, 94, 0.65);
+  letter-spacing: 0.04em;
+  animation: newBadgePulse 1.8s ease-in-out infinite alternate;
+}
+
 .node-tool {
-  width: 215px;
-  height: 58px;
-  background: rgba(14, 20, 32, 0.94);
+  width: 216px;
+  height: 60px;
+  margin-left: -108px;
+  margin-top: -30px;
+  background: rgba(14, 20, 32, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-left: 3.5px solid var(--cat-color);
   border-radius: 10px;
@@ -607,6 +643,11 @@ body {
   box-shadow: 0 0 24px -3px var(--cat-color);
   background: rgba(24, 34, 52, 0.98);
   z-index: 9;
+}
+
+.node-tool.unread-new-node {
+  border-color: rgba(244, 63, 94, 0.65);
+  box-shadow: 0 0 20px -4px rgba(244, 63, 94, 0.45);
 }
 
 .node-tool.recommended {
@@ -641,6 +682,28 @@ body {
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
+}
+
+/* ICONO NEW EN NODO DE TECNOLOGÍA (Desaparece al pasar el ratón y leer la tarjeta) */
+.new-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #f43f5e, #e11d48);
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(244, 63, 94, 0.6);
+  letter-spacing: 0.04em;
+  animation: newBadgePulse 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes newBadgePulse {
+  from { filter: brightness(1); }
+  to { filter: brightness(1.22); }
 }
 
 .rec-star {
@@ -695,7 +758,7 @@ body {
   text-overflow: ellipsis;
 }
 
-/* PUNTO 3: PANEL IZQUIERDO INDEPENDIENTE PARA ASESOR & PROYECTOS */
+/* PANEL IZQUIERDO INDEPENDIENTE PARA ASESOR & PROYECTOS */
 .studio-panel {
   position: absolute;
   top: 16px;
@@ -711,14 +774,14 @@ body {
   display: flex;
   flex-direction: column;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75);
-  transform: translate3d(-440px, 0, 0);
+  transform: translate(-440px, 0);
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   user-select: text;
   overflow: hidden;
 }
 
 .studio-panel.open {
-  transform: translate3d(0, 0, 0);
+  transform: translate(0, 0);
 }
 
 .sp-top-bar {
@@ -939,15 +1002,15 @@ body {
   gap: 6px;
 }
 
-/* PUNTOS 2, 3 Y 4: TARJETA DERECHA EXCLUSIVA DE TECNOLOGÍA (REDISEÑO EDITORIAL) */
+/* TARJETA DERECHA EXCLUSIVA DE TECNOLOGÍA */
 .tech-card {
   position: absolute;
   top: 16px;
   right: 22px;
-  width: 385px;
+  width: 386px;
   max-width: calc(100vw - 44px);
   max-height: calc(100vh - 138px);
-  background: rgba(11, 15, 26, 0.94);
+  background: rgba(11, 15, 26, 0.95);
   backdrop-filter: blur(22px);
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 18px;
@@ -959,7 +1022,7 @@ body {
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75), 0 0 32px -12px var(--tc-color, #38bdf8);
   opacity: 0;
   pointer-events: none;
-  transform: translate3d(28px, 0, 0) scale(0.98);
+  transform: translate(28px, 0) scale(0.98);
   user-select: text;
   overflow-y: auto;
 }
@@ -978,7 +1041,6 @@ body {
   box-shadow: 0 0 14px var(--tc-color, #38bdf8);
 }
 
-/* Fila superior minimalista */
 .tc-top-row {
   display: flex;
   align-items: center;
@@ -1029,7 +1091,6 @@ body {
   display: inline-flex;
 }
 
-/* Acciones discretas arriba a la derecha (Adiós al botón gigante) */
 .tc-quick-actions {
   display: flex;
   align-items: center;
@@ -1099,7 +1160,6 @@ body {
   background: rgba(255, 255, 255, 0.1);
 }
 
-/* Jerarquía visual protagonista: Título + Resumen limpio */
 .tc-hero {
   display: flex;
   flex-direction: column;
@@ -1134,7 +1194,6 @@ body {
   font-weight: 400;
 }
 
-/* Recuadro destacado para Caso de Uso */
 .tc-usecase-card {
   display: flex;
   align-items: flex-start;
@@ -1174,7 +1233,6 @@ body {
   font-weight: 500;
 }
 
-/* Píldoras visuales de sinergia */
 .tc-synergy-block {
   display: flex;
   flex-direction: column;
@@ -1197,7 +1255,6 @@ body {
   color: #e9d5ff;
 }
 
-/* Snippet compacto */
 .tc-code-wrap {
   display: flex;
   flex-direction: column;
@@ -1235,7 +1292,6 @@ body {
   color: #7dd3fc;
 }
 
-/* Pie sutil para estado y nota rápida */
 .tc-footer {
   display: flex;
   flex-direction: column;

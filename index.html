@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
-  <!-- Librería GSAP para físicas de ramas y transiciones de interfaz -->
+  <!-- Librería GSAP -->
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
 </head>
 <body>
@@ -47,6 +47,11 @@
     </div>
 
     <div class="topbar-right">
+      <div class="unread-counter-pill" id="unreadCounterPill" style="display:none;">
+        <span class="new-spark">✨</span>
+        <span id="unreadCountText">0 nuevas sin leer</span>
+      </div>
+
       <div class="search-box">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
@@ -81,11 +86,11 @@
       </div>
 
       <div class="canvas-hint">
-        Pasa el ratón sobre cualquier tecnología para ver su ficha al instante · Haz clic en un nodo si quieres dejarla fija
+        Pasa el ratón sobre cualquier tecnología para leer su tarjeta (el icono NEW desaparecerá al leerla)
       </div>
 
       <div class="tree-stage" id="treeStage">
-        <svg class="tree-svg" id="treeSvg" width="3600" height="2600" viewBox="0 0 3600 2600"></svg>
+        <svg class="tree-svg" id="treeSvg" width="3600" height="2600" viewBox="0 0 3600 2600" shape-rendering="geometricPrecision"></svg>
         <div class="tree-nodes" id="treeNodes"></div>
       </div>
     </section>
@@ -197,12 +202,12 @@
     <aside class="tech-card" id="techCard" aria-hidden="true">
       <div class="tc-accent-bar" id="tcAccentBar"></div>
 
-      <!-- Cabecera compacta: Categoría a la izquierda, acciones discretas a la derecha -->
+      <!-- Cabecera compacta -->
       <div class="tc-top-row tc-anim-item">
         <div class="tc-cat-wrap">
           <span class="tc-cat-dot" id="tcCatDot"></span>
           <span class="tc-category" id="tcCategory">CATEGORÍA</span>
-          <span class="tc-pin-badge" id="tcPinBadge" title="Haz clic en el nodo o aquí para fijar/desfijar">📌 Fijada</span>
+          <span class="tc-pin-badge" id="tcPinBadge">📌 Fijada</span>
         </div>
 
         <div class="tc-quick-actions">
@@ -218,7 +223,7 @@
         <span class="tc-badge" id="tcBadge">Especialidad</span>
       </div>
 
-      <!-- Protagonista 2: Explicación principal de alta legibilidad -->
+      <!-- Protagonista 2: Explicación principal -->
       <p class="tc-summary tc-anim-item" id="tcSummary"></p>
 
       <!-- Protagonista 3: Caso de uso destacado -->
