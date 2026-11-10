@@ -95,7 +95,6 @@ const state = {
   expandedCategories: new Set(),
   stackFocusMode: false,
   matterActive: false,
-  particlesEnabled: true,
   ollamaOnline: false,
   ollamaModelName: 'qwen2.5-coder:7b',
   search: '',
@@ -103,7 +102,7 @@ const state = {
   isCardPinned: false,
   isCardVisible: false,
   recommendedIds: [],
-  recommendedReasons: {}, // Guarda la justificación exacta generada por Ollama para cada tecnología: { [toolId]: "Por qué es necesaria..." }
+  recommendedReasons: {},
   tools: [],
   seenToolIds: new Set(),
   userProgress: {},
@@ -133,6 +132,7 @@ const state = {
 
 let hoverOpenTimer = null;
 let hoverCloseTimer = null;
+let resetBranchesTimer = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
   if (window.lucide) window.lucide.createIcons();
@@ -165,7 +165,6 @@ async function checkOllamaStatus() {
     const data = await res.json();
     const models = data.models || [];
 
-    // Priorizar tu modelo Qwen Coder 7B o el primero disponible en tu máquina
     const preferred =
       models.find(m => m.name.toLowerCase().includes('qwen2.5-coder')) ||
       models.find(m => m.name.toLowerCase().includes('qwen')) ||
@@ -215,7 +214,7 @@ function runWithViewTransition(fn) {
   }
 }
 
-// ==================== CONSTELACIÓN REACTIVA EN CANVAS 2D ====================
+// ==================== CONSTELACIÓN REACTIVA EN CANVAS 2D (SIEMPRE ACTIVA) ====================
 function initBackgroundParticles() {
   const canvas = document.getElementById('particlesCanvas');
   if (!canvas) return;
@@ -245,33 +244,31 @@ function initBackgroundParticles() {
   }));
 
   function animateParticles() {
-    if (state.particlesEnabled) {
-      ctx.clearRect(0, 0, width, height);
-      ctx.fillStyle = 'rgba(56, 189, 248, 0.55)';
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.55)';
 
-      for (let i = 0; i < particles.length; i++) {
-        const p = particles[i];
-        p.x += p.vx;
-        p.y += p.vy;
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
 
-        if (p.x < 0) p.x = width;
-        if (p.x > width) p.x = 0;
-        if (p.y < 0) p.y = height;
-        if (p.y > height) p.y = 0;
+      if (p.x < 0) p.x = width;
+      if (p.x > width) p.x = 0;
+      if (p.y < 0) p.y = height;
+      if (p.y > height) p.y = 0;
 
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+
+      const dMouse = Math.hypot(p.x - mouseX, p.y - mouseY);
+      if (dMouse < 150) {
+        ctx.strokeStyle = `rgba(56, 189, 248, ${(1 - dMouse / 150) * 0.25})`;
+        ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fill();
-
-        const dMouse = Math.hypot(p.x - mouseX, p.y - mouseY);
-        if (dMouse < 150) {
-          ctx.strokeStyle = `rgba(56, 189, 248, ${(1 - dMouse / 150) * 0.25})`;
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.moveTo(p.x, p.y);
-          ctx.lineTo(mouseX, mouseY);
-          ctx.stroke();
-        }
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(mouseX, mouseY);
+        ctx.stroke();
       }
     }
     requestAnimationFrame(animateParticles);
@@ -731,20 +728,55 @@ function isToolVisibleByFilter(tool) {
   return true;
 }
 
-// MOTOR DE CÁMARA FLUIDA Y NÍTIDA
+// LIMPIAR TODOS LOS FILTROS DE LA PÁGINA (Botón superior)
+function clearAllGlobalFilters() {
+  state.search = '';
+  state.stackFocusMode = false;
+  state.recommendedIds = [];
+  state.recommendedReasons = {};
+
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) searchInput.value = '';
+
+  const reasoningBox = document.getElementById('aiReasoningBox');
+  if (reasoningBox) reasoningBox.style.display = 'none';
+
+  const btnPassAll = document.getElementById('btnPassAllToStack');
+  if (btnPassAll) btnPassAll.style.display = 'none';
+
+  const resultsBox = document.getElementById('advisorResultsContainer');
+  if (resultsBox) {
+    resultsBox.innerHTML = `<p class="empty-hint">Describe tu proyecto arriba y pulsa <strong>Analizar y Recomendar</strong>. Solo se seleccionarán tecnologías reales de tu catálogo.</p>`;
+  }
+
+  resetBranchesWithGSAP(true);
+  renderAll();
+}
+
+function updateClearFilterButtonState() {
+  const btn = document.getElementById('btnClearGlobalFilter');
+  if (!btn) return;
+  const hasActiveFilter =
+    state.search.trim() !== '' ||
+    state.stackFocusMode ||
+    state.recommendedIds.length > 0;
+  btn.classList.toggle('active', hasActiveFilter);
+}
+
+// MOTOR DE CÁMARA FLUIDA Y NÍTIDA (CORREGIDO: CERO VIBRACIÓN AL DETENERSE)
 function startSmoothCameraLoop() {
   const stage = document.getElementById('treeStage');
-  let isSettled = false;
+  let isSettled = true;
 
   function step() {
     const cam = state.camera;
-    const lerpFactor = cam.isDragging ? 0.4 : 0.18;
+    const lerpFactor = cam.isDragging ? 0.42 : 0.18;
 
     const dx = cam.targetX - cam.currentX;
     const dy = cam.targetY - cam.currentY;
     const ds = cam.targetScale - cam.currentScale;
 
-    if (Math.abs(dx) > 0.08 || Math.abs(dy) > 0.08 || Math.abs(ds) > 0.0004) {
+    if (Math.abs(dx) > 0.15 || Math.abs(dy) > 0.15 || Math.abs(ds) > 0.0005) {
       isSettled = false;
       cam.currentX += dx * lerpFactor;
       cam.currentY += dy * lerpFactor;
@@ -752,10 +784,16 @@ function startSmoothCameraLoop() {
 
       stage.style.transform = `translate(${cam.currentX.toFixed(1)}px, ${cam.currentY.toFixed(1)}px) scale(${cam.currentScale.toFixed(4)})`;
     } else if (!isSettled) {
+      // Igualamos target y current al mismo entero redondeado para que dx, dy y ds sean exactamente 0 y nunca vibre
       isSettled = true;
-      cam.currentX = Math.round(cam.targetX);
-      cam.currentY = Math.round(cam.targetY);
-      cam.currentScale = Number(cam.targetScale.toFixed(3));
+      cam.targetX = Math.round(cam.targetX);
+      cam.targetY = Math.round(cam.targetY);
+      cam.targetScale = Number(cam.targetScale.toFixed(3));
+
+      cam.currentX = cam.targetX;
+      cam.currentY = cam.targetY;
+      cam.currentScale = cam.targetScale;
+
       stage.style.transform = `translate(${cam.currentX}px, ${cam.currentY}px) scale(${cam.currentScale})`;
     }
 
@@ -773,9 +811,9 @@ function centerCamera(instant = false) {
   const targetScale = vw < 1200 ? 0.62 : 0.76;
   const anchorY = state.layout === 'matrix' ? 780 : 1300;
 
-  state.camera.targetScale = targetScale;
-  state.camera.targetX = Math.round(vw / 2 - 1800 * targetScale);
-  state.camera.targetY = Math.round(vh / 2 - anchorY * targetScale);
+  state.camera.targetScale = Number(targetScale.toFixed(3));
+  state.camera.targetX = Math.round(vw / 2 - 1800 * state.camera.targetScale);
+  state.camera.targetY = Math.round(vh / 2 - anchorY * state.camera.targetScale);
 
   if (instant) {
     state.camera.currentScale = state.camera.targetScale;
@@ -787,15 +825,16 @@ function centerCamera(instant = false) {
 }
 
 function applyZoomAtPoint(newScale, mouseX, mouseY) {
-  const clamped = Math.min(2.8, Math.max(0.32, newScale));
+  const clamped = Number(Math.min(2.8, Math.max(0.32, newScale)).toFixed(3));
   const ratio = clamped / state.camera.targetScale;
-  state.camera.targetX = mouseX - (mouseX - state.camera.targetX) * ratio;
-  state.camera.targetY = mouseY - (mouseY - state.camera.targetY) * ratio;
+  state.camera.targetX = Math.round(mouseX - (mouseX - state.camera.targetX) * ratio);
+  state.camera.targetY = Math.round(mouseY - (mouseY - state.camera.targetY) * ratio);
   state.camera.targetScale = clamped;
 }
 
-// MOTOR GSAP PARA ILUMINAR Y APARTAR LAS DEMÁS RAMAS
+// MOTOR GSAP ESTABILIZADO (CON DEBOUNCE ANTI-REBOTE ENTRE RAMAS)
 function focusBranchWithGSAP(activeCatId, specificToolId = null) {
+  clearTimeout(resetBranchesTimer);
   const svg = document.getElementById('treeSvg');
   const activeCoords = state.categoryCoords.get(activeCatId);
   if (!activeCoords) return;
@@ -815,8 +854,8 @@ function focusBranchWithGSAP(activeCatId, specificToolId = null) {
           x: 0,
           y: 0,
           opacity: 1,
-          duration: 0.42,
-          ease: 'power3.out',
+          duration: 0.38,
+          ease: 'power2.out',
           overwrite: 'auto'
         });
       }
@@ -836,17 +875,17 @@ function focusBranchWithGSAP(activeCatId, specificToolId = null) {
       let dy = catCoords.y - activeCoords.y;
       const dist = Math.hypot(dx, dy) || 1;
 
-      const pushStrength = Math.max(12, Math.min(26, 9500 / dist));
+      const pushStrength = Math.max(10, Math.min(20, 8000 / dist));
       const offsetX = Math.round((dx / dist) * pushStrength);
-      const offsetY = state.layout === 'matrix' ? 6 : Math.round((dy / dist) * pushStrength);
+      const offsetY = state.layout === 'matrix' ? 0 : Math.round((dy / dist) * pushStrength);
 
       if (window.gsap) {
         gsap.to([nodeGroup, svgGroup], {
           x: offsetX,
           y: offsetY,
-          opacity: 0.34,
-          duration: 0.48,
-          ease: 'power3.out',
+          opacity: 0.36,
+          duration: 0.42,
+          ease: 'power2.out',
           overwrite: 'auto'
         });
       }
@@ -859,27 +898,36 @@ function focusBranchWithGSAP(activeCatId, specificToolId = null) {
   });
 }
 
-function resetBranchesWithGSAP() {
-  const svg = document.getElementById('treeSvg');
-  const allNodeGroups = document.querySelectorAll('.branch-node-group');
-  const allSvgGroups = svg.querySelectorAll('.branch-svg-group');
+function resetBranchesWithGSAP(immediate = false) {
+  clearTimeout(resetBranchesTimer);
+  const executeReset = () => {
+    const svg = document.getElementById('treeSvg');
+    const allNodeGroups = document.querySelectorAll('.branch-node-group');
+    const allSvgGroups = svg.querySelectorAll('.branch-svg-group');
 
-  setThreeCoreColor('#38bdf8');
+    setThreeCoreColor('#38bdf8');
 
-  if (window.gsap) {
-    gsap.to([...allNodeGroups, ...allSvgGroups], {
-      x: 0,
-      y: 0,
-      opacity: 1,
-      duration: 0.45,
-      ease: 'power3.out',
-      overwrite: 'auto'
+    if (window.gsap) {
+      gsap.to([...allNodeGroups, ...allSvgGroups], {
+        x: 0,
+        y: 0,
+        opacity: 1,
+        duration: 0.4,
+        ease: 'power2.out',
+        overwrite: 'auto'
+      });
+    }
+
+    svg.querySelectorAll('path').forEach(p => {
+      p.classList.remove('edge-active-base', 'edge-active-pulse', 'edge-dimmed');
     });
-  }
+  };
 
-  svg.querySelectorAll('path').forEach(p => {
-    p.classList.remove('edge-active-base', 'edge-active-pulse', 'edge-dimmed');
-  });
+  if (immediate) {
+    executeReset();
+  } else {
+    resetBranchesTimer = setTimeout(executeReset, 55);
+  }
 }
 
 // TARJETA DERECHA DE VISTA RÁPIDA
@@ -967,7 +1015,6 @@ function populateTechCardDOM(tool) {
   document.getElementById('tcUrl').href = tool.url;
   document.getElementById('tcSummary').textContent = tool.summary;
 
-  // Si esta tecnología fue recomendada para el proyecto actual, mostramos arriba por qué es necesaria
   const aiReason = state.recommendedReasons[tool.id];
   const useCaseEl = document.getElementById('tcUseCase');
   if (aiReason) {
@@ -1026,6 +1073,7 @@ function closeTechCard() {
 // RENDERIZADO GENERAL
 function renderAll() {
   updateHeaderProjectLabel();
+  updateClearFilterButtonState();
   renderTree();
   renderBento();
   renderStackDock();
@@ -1060,6 +1108,7 @@ function renderTree() {
   mountThreeRootCore(rootEl);
 
   rootEl.addEventListener('mouseenter', () => {
+    clearTimeout(resetBranchesTimer);
     if (state.threeCore) state.threeCore.speedMultiplier = 3.2;
     svg.querySelectorAll('[data-edge^="cat-"]').forEach(p => {
       p.classList.add(p.classList.contains('edge-base') ? 'edge-active-base' : 'edge-active-pulse');
@@ -1295,7 +1344,7 @@ function renderTree() {
         gsap.fromTo(
           toolEl,
           { opacity: 0, scale: 0.88 },
-          { opacity: 1, scale: 1, duration: 0.28, delay: toolIdx * 0.025, ease: 'power2.out' }
+          { opacity: 1, scale: 1, duration: 0.26, delay: toolIdx * 0.02, ease: 'power2.out' }
         );
       }
     });
@@ -1415,11 +1464,9 @@ async function runProjectAdvisor(rawText) {
     return;
   }
 
-  // Verificar en vivo si Ollama responde en localhost:11434
   const isOnline = await checkOllamaStatus();
 
   if (isOnline) {
-    // MODO 100% OLLAMA: Descartamos por completo el filtro de palabras clave
     runBtn.disabled = true;
     runBtn.textContent = 'Razonando con IA...';
     btnPassAll.style.display = 'none';
@@ -1428,7 +1475,6 @@ async function runProjectAdvisor(rawText) {
     container.innerHTML = `<p class="empty-hint">⏳ Evaluando compatibilidad de lenguajes, frameworks, bases de datos y librerías para tu proyecto...</p>`;
 
     try {
-      // Le pasamos el catálogo completo con su descripción técnica y caso de uso real
       const fullCatalogContext = state.tools.map(t => {
         const cleanName = t.name.replace(' [NUEVO]', '');
         return `- ID: "${t.id}" | Nombre: ${cleanName} | Rama: ${t.category} | Descripción: ${t.summary} | Ideal para: ${t.useCase}`;
@@ -1500,7 +1546,6 @@ Responde ÚNICAMENTE con un objeto JSON válido con esta estructura exacta:
       state.recommendedIds = verifiedTools.map(t => t.id);
       state.recommendedReasons = newReasons;
 
-      // Desplegar en el árbol únicamente las ramas que contienen las tecnologías elegidas por Ollama
       state.expandedCategories.clear();
       verifiedTools.forEach(t => state.expandedCategories.add(t.category));
 
@@ -1509,14 +1554,12 @@ Responde ÚNICAMENTE con un objeto JSON válido con esta estructura exacta:
       renderAdvisorList(verifiedTools, cleanPrompt);
       renderAll();
     } catch (err) {
-      // Si el modelo falla o devuelve un JSON malformado, avisamos con transparencia y usamos el motor determinista de emergencia
       runDeterministicFallbackAdvisor(cleanPrompt, `⚠️ Aviso de Ollama (${err.message}). Se muestra selección técnica de respaldo:`);
     } finally {
       runBtn.disabled = false;
       runBtn.textContent = 'Analizar y Recomendar';
     }
   } else {
-    // MODO OFFLINE (Solo si tienes Ollama cerrado)
     runDeterministicFallbackAdvisor(
       cleanPrompt,
       `⚪ <strong>Ollama está desconectado:</strong> Usando análisis local de respaldo. Abre Ollama con <code>OLLAMA_ORIGINS="*"</code> y pulsa el botón de estado superior para activar el razonamiento profundo con IA.`
@@ -1524,7 +1567,6 @@ Responde ÚNICAMENTE con un objeto JSON válido con esta estructura exacta:
   }
 }
 
-// Motor de respaldo (solo se ejecuta si Ollama está apagado en tu ordenador)
 function runDeterministicFallbackAdvisor(rawText, bannerHtml) {
   const text = rawText.toLowerCase();
   const btnPassAll = document.getElementById('btnPassAllToStack');
@@ -1616,7 +1658,6 @@ function runDeterministicFallbackAdvisor(rawText, bannerHtml) {
   renderAll();
 }
 
-// Renderiza la lista del Asesor incluyendo debajo de cada tecnología la explicación de por qué es necesaria
 function renderAdvisorList(topTools, rawText) {
   const container = document.getElementById('advisorResultsContainer');
   container.innerHTML = '';
@@ -1992,10 +2033,9 @@ function bindEvents() {
     });
   });
 
-  document.getElementById('btnToggleParticles').addEventListener('click', (e) => {
-    state.particlesEnabled = !state.particlesEnabled;
-    e.currentTarget.classList.toggle('active', state.particlesEnabled);
-    document.getElementById('particlesCanvas').classList.toggle('hidden', !state.particlesEnabled);
+  // Botón Limpiar Filtro en la barra superior
+  document.getElementById('btnClearGlobalFilter').addEventListener('click', () => {
+    clearAllGlobalFilters();
   });
 
   document.getElementById('btnCheckOllama').addEventListener('click', () => {
