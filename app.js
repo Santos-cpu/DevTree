@@ -99,7 +99,7 @@ const state = {
   isCardVisible: false,
   recommendedIds: [],
   tools: [],
-  seenToolIds: new Set(), // Guarda qué tecnologías nuevas ya has leído pasando el ratón
+  seenToolIds: new Set(),
   userProgress: {},
   currentProject: {
     id: null,
@@ -112,10 +112,10 @@ const state = {
   camera: {
     currentX: 0,
     currentY: 0,
-    currentScale: 0.72,
+    currentScale: 0.75,
     targetX: 0,
     targetY: 0,
-    targetScale: 0.72,
+    targetScale: 0.75,
     isDragging: false,
     dragStartX: 0,
     dragStartY: 0
@@ -134,7 +134,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderAll();
 });
 
-// CARGA DE DATOS + DESCUBRIMIENTO AUTOMÁTICO DIARIO EN VIVO
 async function loadAllData() {
   try {
     const prog = localStorage.getItem(KEY_PROGRESS);
@@ -144,7 +143,6 @@ async function loadAllData() {
     if (seenRaw) {
       state.seenToolIds = new Set(JSON.parse(seenRaw));
     } else {
-      // Al iniciar por primera vez, las 48 herramientas base ya se consideran conocidas y las nuevas salen con NEW
       state.seenToolIds = new Set(INITIAL_IDS);
       persistSeenTools();
     }
@@ -152,7 +150,6 @@ async function loadAllData() {
     const custom = localStorage.getItem(KEY_CUSTOM_TOOLS);
     const customList = custom ? JSON.parse(custom) : [];
 
-    // 1. Intentar leer daily_tools.json generado por GitHub Actions
     let dailyList = [];
     try {
       const res = await fetch('./daily_tools.json', { cache: 'no-store' });
@@ -164,8 +161,6 @@ async function loadAllData() {
       dailyList = [];
     }
 
-    // 2. Motor de respaldo autónomo en el navegador: si daily_tools.json está vacío o hoy no se ha sincronizado,
-    // consulta directamente la API pública de GitHub para que siempre tengas novedades diarias reales.
     const liveDailyTools = await fetchLiveDailyToolsFromGitHub(dailyList.length === 0);
 
     const merged = [...INITIAL_TOOLS, ...dailyList, ...liveDailyTools, ...customList];
@@ -192,7 +187,6 @@ async function loadAllData() {
   }
 }
 
-// Descubre automáticamente repositorios en tendencia de tu sector una vez al día sin que tengas que hacer nada
 async function fetchLiveDailyToolsFromGitHub(forceIfEmpty = false) {
   const todayKey = new Date().toISOString().slice(0, 10);
   try {
@@ -209,7 +203,6 @@ async function fetchLiveDailyToolsFromGitHub(forceIfEmpty = false) {
     const d = new Date();
     d.setDate(d.getDate() - 30);
     const sinceDate = d.toISOString().slice(0, 10);
-    // Consulta con 4 operadores OR (cumple el límite estricto de la API de GitHub)
     const query = encodeURIComponent(`(topic:webgl OR topic:threejs OR topic:astro OR topic:tailwindcss) pushed:>=${sinceDate} stars:>=120`);
     const url = `https://api.github.com/search/repositories?q=${query}&sort=stars&order=desc&per_page=8`;
 
@@ -260,7 +253,6 @@ async function fetchLiveDailyToolsFromGitHub(forceIfEmpty = false) {
     }
   } catch (err) {}
 
-  // Respaldo garantizado si estás sin conexión o GitHub limita peticiones
   if (forceIfEmpty) {
     return [
       {
@@ -269,7 +261,7 @@ async function fetchLiveDailyToolsFromGitHub(forceIfEmpty = false) {
         category: 'webgl',
         badge: 'Tendencia · Escenas 3D',
         url: 'https://tresjs.org/',
-        summary: ' Crea escenas 3D declarativas con Three.js usando componentes reactivos de forma limpia y rápida.',
+        summary: 'Crea escenas 3D declarativas con Three.js usando componentes reactivos de forma limpia y rápida.',
         useCase: 'Integrar mundos 3D interactivos en aplicaciones web modernas sin código imperativo complejo.',
         synergy: 'Three.js + Vite + TypeScript',
         keywords: 'nuevo tendencia tresjs 3d webgl componentes',
@@ -316,13 +308,11 @@ function isToolUnreadNew(tool) {
   return (tool.isNewAddition || cleanName || !INITIAL_IDS.has(tool.id)) && !state.seenToolIds.has(tool.id);
 }
 
-// Marca una tecnología como leída en cuanto pasas el ratón y se abre su tarjeta
 function markToolAsSeen(toolId) {
   if (state.seenToolIds.has(toolId)) return;
   state.seenToolIds.add(toolId);
   persistSeenTools();
 
-  // Quitar suavemente la insignia NEW del nodo en pantalla sin recargar todo el árbol
   const nodeEl = document.querySelector(`.node-tool[data-tool-id="${toolId}"]`);
   if (nodeEl) {
     nodeEl.classList.remove('unread-new-node');
@@ -412,10 +402,9 @@ function isToolVisibleByFilter(tool) {
   return true;
 }
 
-// MOTOR DE CÁMARA FLUIDA Y NÍTIDA (Re-rasteriza vectores al detenerse para nitidez 100%)
+// MOTOR DE CÁMARA FLUIDA Y NÍTIDA
 function startSmoothCameraLoop() {
   const stage = document.getElementById('treeStage');
-  const readout = document.getElementById('zoomReadout');
   let isSettled = false;
 
   function step() {
@@ -432,16 +421,13 @@ function startSmoothCameraLoop() {
       cam.currentY += dy * lerpFactor;
       cam.currentScale += ds * lerpFactor;
 
-      // Usamos transform 2D para que el navegador re-renderice las fuentes vectoriales a la escala real
       stage.style.transform = `translate(${cam.currentX.toFixed(1)}px, ${cam.currentY.toFixed(1)}px) scale(${cam.currentScale.toFixed(4)})`;
-      readout.textContent = `${Math.round(cam.currentScale * 100)}%`;
     } else if (!isSettled) {
       isSettled = true;
       cam.currentX = Math.round(cam.targetX);
       cam.currentY = Math.round(cam.targetY);
       cam.currentScale = Number(cam.targetScale.toFixed(3));
       stage.style.transform = `translate(${cam.currentX}px, ${cam.currentY}px) scale(${cam.currentScale})`;
-      readout.textContent = `${Math.round(cam.currentScale * 100)}%`;
     }
 
     requestAnimationFrame(step);
@@ -453,10 +439,10 @@ function startSmoothCameraLoop() {
 function centerCamera(instant = false) {
   const viewport = document.getElementById('treeViewport');
   const vw = viewport.clientWidth || window.innerWidth;
-  const vh = viewport.clientHeight || (window.innerHeight - 106);
+  const vh = viewport.clientHeight || (window.innerHeight - 60);
 
-  const targetScale = vw < 1200 ? 0.6 : 0.75;
-  const anchorY = state.layout === 'matrix' ? 820 : 1300;
+  const targetScale = vw < 1200 ? 0.62 : 0.76;
+  const anchorY = state.layout === 'matrix' ? 780 : 1300;
 
   state.camera.targetScale = targetScale;
   state.camera.targetX = Math.round(vw / 2 - 1800 * targetScale);
@@ -472,7 +458,6 @@ function centerCamera(instant = false) {
 }
 
 function applyZoomAtPoint(newScale, mouseX, mouseY) {
-  // Permite acercar hasta 280% (2.8x) manteniendo nitidez vectorial
   const clamped = Math.min(2.8, Math.max(0.32, newScale));
   const ratio = clamped / state.camera.targetScale;
   state.camera.targetX = mouseX - (mouseX - state.camera.targetX) * ratio;
@@ -480,7 +465,7 @@ function applyZoomAtPoint(newScale, mouseX, mouseY) {
   state.camera.targetScale = clamped;
 }
 
-// MOTOR GSAP PARA ILUMINAR Y APARTAR LAS DEMÁS RAMAS AL PASAR EL CURSOR
+// MOTOR GSAP PARA ILUMINAR Y APARTAR LAS DEMÁS RAMAS
 function focusBranchWithGSAP(activeCatId, specificToolId = null) {
   const svg = document.getElementById('treeSvg');
   const activeCoords = state.categoryCoords.get(activeCatId);
@@ -563,7 +548,7 @@ function resetBranchesWithGSAP() {
   });
 }
 
-// TARJETA DERECHA DE VISTA RÁPIDA (Marca como vista la tecnología NEW al abrirse)
+// TARJETA DERECHA DE VISTA RÁPIDA
 function scheduleShowTechCard(toolId) {
   clearTimeout(hoverCloseTimer);
   if (state.isCardPinned && state.activeToolId !== toolId) return;
@@ -587,7 +572,6 @@ function openTechCard(toolId, pinIt = false) {
   const tool = state.tools.find(t => t.id === toolId);
   if (!tool) return;
 
-  // En cuanto el usuario pasa el ratón y se muestra la tarjeta, se marca como leída y se quita el icono NEW
   markToolAsSeen(toolId);
 
   const card = document.getElementById('techCard');
@@ -841,7 +825,7 @@ function renderTree() {
 
     if (!isExpanded) return;
 
-    // 3. NODOS DE TECNOLOGÍA DE ESTA RAMA (Ordenados poniendo las novedades NEW arriba)
+    // 3. NODOS DE TECNOLOGÍA DE ESTA RAMA
     const sortedTools = [...visibleCatTools].sort((a, b) => {
       const aNew = isToolUnreadNew(a) ? 1 : 0;
       const bNew = isToolUnreadNew(b) ? 1 : 0;
@@ -1164,7 +1148,7 @@ function runProjectAdvisor(rawText) {
   renderAll();
 }
 
-// STACK LAB Y MODO ENFOQUE
+// STACK LAB INTEGRADO EN EL ASISTENTE
 function toggleToolInStack(toolId) {
   const list = state.currentProject.stackIds;
   const idx = list.indexOf(toolId);
@@ -1188,10 +1172,10 @@ function renderStackDock() {
   const ids = state.currentProject.stackIds;
   countBadge.textContent = `${ids.length} en el proyecto`;
   focusBtn.classList.toggle('active', state.stackFocusMode);
-  focusBtn.textContent = state.stackFocusMode ? '🎯 Viendo solo mi Stack (Ver todo)' : '🎯 Ver solo mi Stack';
+  focusBtn.textContent = state.stackFocusMode ? '🎯 Viendo mi Stack (Ver todo)' : '🎯 Ver solo mi Stack';
 
   if (ids.length === 0) {
-    chipsContainer.innerHTML = `<span class="stack-dock-empty">Usa el Asesor o pulsa "+S" en cualquier tecnología para armar el Stack de tu proyecto</span>`;
+    chipsContainer.innerHTML = `<span class="stack-dock-empty">Usa el Asesor o pulsa "+S" en cualquier nodo para armar el Stack de tu proyecto.</span>`;
     return;
   }
 
@@ -1375,7 +1359,6 @@ function bindEvents() {
     document.getElementById('treeViewport').classList.remove('active');
   });
 
-  // Al pulsar el contador superior de "nuevas sin leer", despliega automáticamente las ramas que tienen novedades
   document.getElementById('unreadCounterPill').addEventListener('click', () => {
     state.tools.forEach(t => {
       if (isToolUnreadNew(t)) state.expandedCategories.add(t.category);
@@ -1463,23 +1446,12 @@ function bindEvents() {
   document.getElementById('btnLayoutWing').addEventListener('click', () => setLayout('wing'));
   document.getElementById('btnLayoutOrbital').addEventListener('click', () => setLayout('orbital'));
 
-  document.getElementById('btnExpandAll').addEventListener('click', () => {
-    CATEGORIES.forEach(c => state.expandedCategories.add(c.id));
-    renderAll();
-  });
-
-  document.getElementById('btnCollapseAll').addEventListener('click', () => {
-    state.expandedCategories.clear();
-    state.stackFocusMode = false;
-    renderAll();
-    centerCamera(false);
-  });
-
   document.getElementById('searchInput').addEventListener('input', (e) => {
     state.search = e.target.value;
     renderAll();
   });
 
+  // Navegación Pan & Zoom + Doble clic en el lienzo para centrar
   const treeViewport = document.getElementById('treeViewport');
 
   treeViewport.addEventListener('mousedown', (e) => {
@@ -1501,6 +1473,11 @@ function bindEvents() {
     treeViewport.classList.remove('dragging');
   });
 
+  treeViewport.addEventListener('dblclick', (e) => {
+    if (e.target.closest('.canvas-hud') || e.target.closest('.node')) return;
+    centerCamera(false);
+  });
+
   treeViewport.addEventListener('wheel', (e) => {
     e.preventDefault();
     const rect = treeViewport.getBoundingClientRect();
@@ -1508,14 +1485,7 @@ function bindEvents() {
     applyZoomAtPoint(state.camera.targetScale * factor, e.clientX - rect.left, e.clientY - rect.top);
   }, { passive: false });
 
-  document.getElementById('btnZoomIn').addEventListener('click', () => {
-    applyZoomAtPoint(state.camera.targetScale * 1.2, treeViewport.clientWidth / 2, treeViewport.clientHeight / 2);
-  });
-  document.getElementById('btnZoomOut').addEventListener('click', () => {
-    applyZoomAtPoint(state.camera.targetScale * 0.84, treeViewport.clientWidth / 2, treeViewport.clientHeight / 2);
-  });
-  document.getElementById('btnResetCamera').addEventListener('click', () => centerCamera(false));
-
+  // Eventos del Asesor y Proyectos
   document.getElementById('projectNameInput').addEventListener('input', (e) => {
     state.currentProject.name = e.target.value;
     persistActiveProject();
@@ -1552,13 +1522,10 @@ function bindEvents() {
 
   document.getElementById('btnSaveProjectQuick').addEventListener('click', saveCurrentProjectToLibrary);
   document.getElementById('btnSaveCurrentProjectFull').addEventListener('click', saveCurrentProjectToLibrary);
-  document.getElementById('btnSaveStackAsProject').addEventListener('click', () => {
-    studioPanel.classList.add('open');
-    launcherBtn.classList.add('active');
-    saveCurrentProjectToLibrary();
-  });
+  document.getElementById('btnSaveStackAsProject').addEventListener('click', saveCurrentProjectToLibrary);
   document.getElementById('btnNewBlankProject').addEventListener('click', startNewBlankProject);
 
+  // Stack Lab en la base del Asistente
   document.getElementById('btnToggleStackFocus').addEventListener('click', () => {
     if (state.currentProject.stackIds.length === 0 && !state.stackFocusMode) {
       alert('Añade primero al menos una tecnología a tu Stack Lab (o usa el Asesor) para activar el Modo Enfoque.');
