@@ -65,7 +65,7 @@
 
   <!-- ESPACIO DE TRABAJO PRINCIPAL -->
   <main class="workspace">
-    <!-- VISTA 1: LIENZO DE ÁRBOL -->
+    <!-- VISTA 1: LIENZO DE ÁRBOL LIMPIO -->
     <section class="tree-viewport active" id="treeViewport">
       <div class="canvas-hud">
         <div class="hud-group">
@@ -73,20 +73,6 @@
           <button type="button" class="hud-btn" id="btnLayoutWing">Simétrico 4×4</button>
           <button type="button" class="hud-btn" id="btnLayoutOrbital">Orbital 360°</button>
         </div>
-        <div class="hud-group">
-          <button type="button" class="hud-btn" id="btnExpandAll">Desplegar todo</button>
-          <button type="button" class="hud-btn" id="btnCollapseAll">Plegar ramas</button>
-        </div>
-        <div class="hud-group">
-          <button type="button" class="hud-btn" id="btnZoomOut">−</button>
-          <span class="zoom-readout" id="zoomReadout">72%</span>
-          <button type="button" class="hud-btn" id="btnZoomIn">+</button>
-          <button type="button" class="hud-btn" id="btnResetCamera">Centrar</button>
-        </div>
-      </div>
-
-      <div class="canvas-hint">
-        Pasa el ratón sobre cualquier tecnología para leer su tarjeta (el icono NEW desaparecerá al leerla)
       </div>
 
       <div class="tree-stage" id="treeStage">
@@ -100,7 +86,7 @@
       <div class="bento-container" id="bentoContainer"></div>
     </section>
 
-    <!-- VENTANA IZQUIERDA INDEPENDIENTE: ASESOR DE PROYECTO & PROYECTOS GUARDADOS -->
+    <!-- VENTANA DEL ASISTENTE (ASESOR + PROYECTOS + STACK LAB ABAJO) -->
     <aside class="studio-panel" id="studioPanel" aria-hidden="true">
       <div class="sp-top-bar">
         <div class="sp-tabs">
@@ -196,6 +182,27 @@
           <button type="button" class="btn-ghost" id="btnExportJson">Exportar proyectos y catálogo (JSON)</button>
         </div>
       </div>
+
+      <!-- STACK LAB INTEGRADO EN LA PARTE INFERIOR DEL ASISTENTE -->
+      <div class="studio-stack-footer" id="stackDock">
+        <div class="ssf-header">
+          <div class="ssf-title-group">
+            <span class="stack-dock-title">STACK LAB</span>
+            <span class="stack-dock-count" id="stackCountBadge">0 en el proyecto</span>
+          </div>
+          <button type="button" class="btn-focus-toggle" id="btnToggleStackFocus">
+            🎯 Ver solo mi Stack
+          </button>
+        </div>
+
+        <div class="stack-dock-chips" id="stackDockChips"></div>
+
+        <div class="ssf-actions">
+          <button type="button" class="btn-ghost btn-xs" id="btnSaveStackAsProject">Guardar Proyecto</button>
+          <button type="button" class="btn-ghost btn-xs" id="btnCopyStackCmd">Copiar Lista</button>
+          <button type="button" class="btn-ghost btn-xs" id="btnClearStack">Vaciar</button>
+        </div>
+      </div>
     </aside>
 
     <!-- TARJETA DERECHA EXCLUSIVA: VISTA RÁPIDA DE TECNOLOGÍA (HOVER / PIN) -->
@@ -267,25 +274,6 @@
         />
       </div>
     </aside>
-
-    <!-- DOCK INFERIOR: STACK LAB -->
-    <div class="stack-dock" id="stackDock">
-      <div class="stack-dock-left">
-        <span class="stack-dock-title">STACK LAB</span>
-        <span class="stack-dock-count" id="stackCountBadge">0 en el proyecto</span>
-      </div>
-
-      <div class="stack-dock-chips" id="stackDockChips"></div>
-
-      <div class="stack-dock-actions">
-        <button type="button" class="btn-focus-toggle" id="btnToggleStackFocus">
-          🎯 Ver solo mi Stack
-        </button>
-        <button type="button" class="btn-ghost btn-sm" id="btnSaveStackAsProject">Guardar Proyecto</button>
-        <button type="button" class="btn-ghost btn-sm" id="btnCopyStackCmd">Copiar Lista</button>
-        <button type="button" class="btn-ghost btn-sm" id="btnClearStack">Vaciar</button>
-      </div>
-    </div>
   </main>
 
   <!-- MODAL PARA AÑADIR NUEVA TECNOLOGÍA -->
