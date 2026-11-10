@@ -6,11 +6,11 @@ const CATEGORIES = [
   { id: 'vector', name: 'UI Creativa & Físicas', color: '#ec4899', description: 'Sistemas Bento, máquinas de estados vectoriales y colisiones 2D.' },
   { id: 'frameworks', name: 'Frameworks & Base', color: '#10b981', description: 'Arquitecturas web y móviles de alto rendimiento.' },
   { id: 'backend', name: 'Backend, Datos & IA', color: '#06b6d4', description: 'Bases de datos SQL/NoSQL, contenedores Docker e IA local/cloud.' },
-  { id: 'assets', name: 'Assets 3D, Fuentes & FX', color: '#f97316', description: 'Modelado 3D, tipografías de estudio, iconos y audio.' },
+  { id: 'assets', name: 'Assets 3D, Fuentes & FX', color: '#f97316', description: 'Modelado 3D, tipografías de estudio, iconos y compresión.' },
   { id: 'inspiration', name: 'Inspiración & Deploy', color: '#6366f1', description: 'Galerías premiadas, demos con código y hosting gratuito.' }
 ];
 
-// CATÁLOGO BASE DE 48 TECNOLOGÍAS
+// CATÁLOGO BASE VERIFICADO DE 48 TECNOLOGÍAS
 const INITIAL_TOOLS = [
   // 1. Lenguajes
   { id: 'lang-js', name: 'JavaScript (ES2026)', category: 'languages', badge: 'Frontend & Web Core', url: 'https://developer.mozilla.org/es/docs/Web/JavaScript', summary: 'El lenguaje nativo del navegador. Controla el DOM, animaciones con GSAP, escenas 3D en WebGL y lógica cliente-servidor.', useCase: 'Webs interactivas, PWAs y experiencias animadas a medida.', synergy: 'HTML + CSS + GSAP + Three.js', keywords: 'javascript js web frontend dom animaciones interactivo navegador pwa', snippet: `const data = await (await fetch("/api/items")).json();` },
@@ -34,7 +34,7 @@ const INITIAL_TOOLS = [
   { id: 'spline', name: 'Spline 3D', category: 'webgl', badge: 'Diseño 3D Visual', url: 'https://spline.design/', summary: 'Editor visual en el navegador para diseñar escenas 3D interactivas con materiales cristal o neón e incrustarlas al instante.', useCase: 'Añadir un elemento 3D interactivo en tu portada en cuestión de minutos.', synergy: 'Astro + HTML + React', keywords: 'spline 3d visual rapido interactivo diseño portada', snippet: `<spline-viewer url="https://prod.spline.design/escena/scene.splinecode"></spline-viewer>` },
   { id: 'theatrejs', name: 'Theatre.js', category: 'webgl', badge: 'Timeline estilo After Effects', url: 'https://www.theatrejs.com/', summary: 'Estudio visual de curvas de animación para coreografiar vuelos de cámara 3D, luces y secuencias con precisión cinematográfica.', useCase: 'Recorridos de cámara guiados por el scroll o timelines de preproducción.', synergy: 'Three.js + ScrollTrigger', keywords: 'theatrejs camara cine after effects timeline 3d animacion', snippet: `const sheet = core.getProject("Escena").sheet("Camara");` },
   { id: 'curtains-ogl', name: 'OGL & Curtains.js', category: 'webgl', badge: 'Distorsión WebGL Ligera', url: 'https://www.curtainsjs.com/', summary: 'Convierte imágenes y vídeos del DOM en planos WebGL que se ondulan como tela o líquido al hacer scroll o pasar el ratón.', useCase: 'Galerías de proyectos con distorsión fluida a 60 FPS.', synergy: 'Lenis + GLSL Shaders', keywords: 'ogl curtains webgl imagenes liquido distorsion shaders ligero', snippet: `const curtains = new Curtains({ container: "canvas" });` },
-  { id: 'shadertoy-p5', name: 'Shadertoy & p5.js', category: 'webgl', badge: 'Arte Generativo & Audio FX', url: 'https://www.shadertoy.com/', summary: 'Plataformas para programar fondos matemáticos generativos, sistemas de partículas y visualizadores reactivos a la música.', useCase: 'Fondos procedurales únicos y visualizadores de frecuencias de audio.', synergy: 'JavaScript + Web Audio API + GLSL', keywords: 'shadertoy p5js generativo particulas audio musica visualizador', snippet: `function draw() { circle(mouseX, mouseY, 28); }` },
+  { id: 'shadertoy-p5', name: 'Shadertoy & p5.js', category: 'webgl', badge: 'Arte Generativo & GPU', url: 'https://www.shadertoy.com/', summary: 'Plataformas para programar fondos matemáticos generativos, sistemas de partículas y shaders GLSL en tiempo real.', useCase: 'Fondos procedurales únicos y geometrías reactivas al ratón.', synergy: 'JavaScript + GLSL + Canvas 2D', keywords: 'shadertoy p5js generativo particulas visualizador shaders', snippet: `function draw() { circle(mouseX, mouseY, 28); }` },
 
   // 4. UI Creativa & Físicas
   { id: 'tailwind', name: 'Tailwind CSS v4', category: 'vector', badge: 'Sistema CSS Utility-First', url: 'https://tailwindcss.com/', summary: 'Permite maquetar interfaces oscuras, rejillas Bento simétricas, bordes iluminados y efectos glassmorphism a gran velocidad.', useCase: 'Diseñar toda la estructura visual de tus webs manteniendo simetría.', synergy: 'Astro + Next.js + Shadcn UI', keywords: 'tailwind css estilos bento oscuro diseño interfaz responsive', snippet: `<div class="grid grid-cols-3 gap-4 rounded-2xl bg-slate-900/80 p-5"></div>` },
@@ -50,7 +50,7 @@ const INITIAL_TOOLS = [
   { id: 'vite', name: 'Vite', category: 'frameworks', badge: 'Entorno de Desarrollo Rápido', url: 'https://vite.dev/', summary: 'Arranca proyectos en Vanilla JS, TypeScript, React o Three.js al instante con recarga en caliente en milisegundos.', useCase: 'Prototipos creativos, aplicaciones web ligeras y laboratorios WebGL.', synergy: 'JavaScript + Three.js + GSAP', keywords: 'vite bundler rapido vanilla js prototipo webgl', snippet: `npm create vite@latest mi-proyecto` },
   { id: 'sveltekit', name: 'SvelteKit', category: 'frameworks', badge: 'Reactividad Compilada', url: 'https://kit.svelte.dev/', summary: 'Compila el código a JavaScript puro sin Virtual DOM, logrando una fluidez sobresaliente en interfaces con muchos cambios de estado.', useCase: 'Editores visuales con líneas de tiempo y herramientas interactivas.', synergy: 'GSAP + Tailwind CSS', keywords: 'svelte sveltekit ligero reactivo editor interactivo', snippet: `npx sv create mi-app` },
   { id: 'android-pwa', name: 'Android Studio & PWA', category: 'frameworks', badge: 'Móvil Nativo & Web Instalable', url: 'https://developer.android.com/studio', summary: 'Entorno oficial para crear aplicaciones Android en Java/Kotlin, junto al estándar PWA para instalar aplicaciones web en el móvil.', useCase: 'Reproductores de música en streaming y apps de gestión compartida.', synergy: 'Java + Kotlin + Firebase', keywords: 'android studio movil app pwa capacitor java kotlin', snippet: `navigator.serviceWorker?.register("/sw.js");` },
-  { id: 'tanstack-zustand', name: 'Zustand & TanStack', category: 'frameworks', badge: 'Estado Global Ultraligero', url: 'https://zustand-demo.pmnd.rs/', summary: 'Gestiona y sincroniza el estado compartido de la aplicación (audio, usuario, cámara 3D) de forma limpia en apenas 1KB.', useCase: 'Conectar los controles de la interfaz con escenas 3D o reproductores.', synergy: 'React + React Three Fiber', keywords: 'zustand tanstack estado global datos react', snippet: `const useStore = create((set) => ({ activo: false }));` },
+  { id: 'tanstack-zustand', name: 'Zustand & TanStack', category: 'frameworks', badge: 'Estado Global Ultraligero', url: 'https://zustand-demo.pmnd.rs/', summary: 'Gestiona y sincroniza el estado compartido de la aplicación (usuario, cámara 3D, filtros) de forma limpia en apenas 1KB.', useCase: 'Conectar los controles de la interfaz con escenas 3D o datos.', synergy: 'React + React Three Fiber', keywords: 'zustand tanstack estado global datos react', snippet: `const useStore = create((set) => ({ activo: false }));` },
 
   // 6. Backend, Datos & IA
   { id: 'supabase', name: 'Supabase (PostgreSQL)', category: 'backend', badge: 'Base de Datos SQL & Realtime', url: 'https://supabase.com/', summary: 'Alternativa open-source a Firebase basada en PostgreSQL con autenticación de usuarios, API automática y sincronización en vivo.', useCase: 'Guardar gastos compartidos, proyectos, cuentas y registros relacionales.', synergy: 'SQL + Next.js + Astro', keywords: 'supabase postgresql sql base de datos login usuarios tiempo real gastos', snippet: `const { data } = await supabase.from("proyectos").select("*");` },
@@ -64,7 +64,7 @@ const INITIAL_TOOLS = [
   { id: 'blender', name: 'Blender 3D', category: 'assets', badge: 'Modelado 3D Open Source', url: 'https://www.blender.org/', summary: 'Suite gratuita completa para modelar, texturizar, animar y exportar objetos 3D en formato .glb comprimidos para la web.', useCase: 'Crear modelos 3D a medida para integrarlos con Three.js.', synergy: 'Three.js + Poly Haven', keywords: 'blender 3d modelado glb animacion texturas', snippet: `# Exporta en glTF 2.0 (.glb) activando compresión Draco` },
   { id: 'fontshare', name: 'Fontshare & Google Fonts', category: 'assets', badge: 'Tipografías de Estudio Gratis', url: 'https://www.fontshare.com/', summary: 'Colecciones gratuitas de fuentes modernas (Clash Display, Satoshi, Space Grotesk) que elevan la personalidad visual al instante.', useCase: 'Titulares potentes con estética de agencia digital.', synergy: 'Tailwind CSS + GSAP SplitText', keywords: 'fontshare fuentes tipografia diseño titulares', snippet: `font-family: 'Clash Display', sans-serif;` },
   { id: 'lucide-phosphor', name: 'Lucide & Phosphor Icons', category: 'assets', badge: 'Iconografía Vectorial SVG', url: 'https://lucide.dev/', summary: 'Miles de iconos vectoriales minimalistas y coherentes cuyos trazos SVG pueden colorearse y animarse por código.', useCase: 'Barras de navegación, botones de acción y tarjetas técnicas.', synergy: 'Tailwind CSS + HTML + React', keywords: 'lucide phosphor iconos svg interfaz botones', snippet: `lucide.createIcons();` },
-  { id: 'howlerjs', name: 'Howler.js & Web Audio', category: 'assets', badge: 'Motor de Audio & FX Web', url: 'https://howlerjs.com/', summary: 'Simplifica el manejo de sonido en el navegador: listas de reproducción en streaming, fundidos y micro-efectos sonoros al hacer clic.', useCase: 'Reproductores musicales y feedback acústico sutil en interfaces.', synergy: 'JavaScript + Three.js + GSAP', keywords: 'howler audio sonido musica streaming reproductor efectos', snippet: `const ctx = new AudioContext();` },
+  { id: 'howlerjs', name: 'Howler.js & Web Audio', category: 'assets', badge: 'Streaming de Audio Web', url: 'https://howlerjs.com/', summary: 'Librería especializada para reproductores de música en streaming, listas de reproducción y control de pistas en proyectos multimedia.', useCase: 'Aplicaciones de música en streaming como FriendFy o podcasts interactivos.', synergy: 'JavaScript + Android + Firebase', keywords: 'howler audio musica streaming reproductor', snippet: `const player = new Howl({ src: ["cancion.mp3"], html5: true });` },
   { id: 'squoosh-gltf', name: 'Squoosh & gltf-transform', category: 'assets', badge: 'Compresión Multimedia', url: 'https://squoosh.app/', summary: 'Optimiza imágenes a formato AVIF/WebP y reduce hasta un 85% el peso de modelos 3D para lograr tiempos de carga instantáneos.', useCase: 'Aligerar todas las capturas y modelos antes de subirlos a GitHub.', synergy: 'Astro + Three.js + Vercel', keywords: 'squoosh avif webp optimizacion rendimiento velocidad', snippet: `npx @gltf-transform/cli optimize in.glb out.glb --compress draco` },
   { id: 'polyhaven-sketchfab', name: 'Poly Haven & Sketchfab', category: 'assets', badge: 'Modelos 3D & Luces HDRI CC0', url: 'https://polyhaven.com/', summary: 'Bibliotecas gratuitas de mapas de iluminación HDRI de estudio, texturas PBR y modelos 3D descargables listos para WebGL.', useCase: 'Iluminar objetos 3D en Three.js con reflejos realistas sin coste.', synergy: 'Blender + Three.js + React Three Fiber', keywords: 'polyhaven sketchfab 3d modelos texturas hdri iluminacion gratis', snippet: `new RGBELoader().load("studio.hdr", (tex) => scene.environment = tex);` },
 
@@ -88,15 +88,16 @@ const KEY_SEEN_TOOLS = 'devtree_v8_seen_tools';
 const KEY_DAILY_AUTO_CACHE = 'devtree_v8_daily_auto_cache';
 const KEY_SUPA_CONFIG = 'devtree_v8_supa_config';
 
-// ESTADO GLOBAL
+// ESTADO GLOBAL (Sin sonidos)
 const state = {
   view: 'tree',
   layout: 'matrix',
   expandedCategories: new Set(),
   stackFocusMode: false,
   matterActive: false,
-  audioEnabled: true,
   particlesEnabled: true,
+  ollamaOnline: false,
+  ollamaModelName: 'qwen2.5-coder:7b',
   search: '',
   activeToolId: null,
   isCardPinned: false,
@@ -124,11 +125,9 @@ const state = {
     dragStartX: 0,
     dragStartY: 0
   },
-  // Referencias para motores en vivo (Three.js, Matter.js, Lenis, Web Audio)
   threeCore: null,
   matterInstance: null,
-  lenisBento: null,
-  audioCtx: null
+  lenisBento: null
 };
 
 let hoverOpenTimer = null;
@@ -143,58 +142,45 @@ document.addEventListener('DOMContentLoaded', async () => {
   startSmoothCameraLoop();
   initLenisSmoothScroll();
   initBackgroundParticles();
+  checkOllamaStatus();
   renderAll();
 });
 
-// ==================== FASE 1: MOTOR DE SONIDO PROCEDURAL (WEB AUDIO API) ====================
-function playStudioSfx(type = 'hover') {
-  if (!state.audioEnabled) return;
+// ==================== VERIFICADOR DE CONEXIÓN REAL CON OLLAMA LOCAL ====================
+async function checkOllamaStatus() {
+  const led = document.getElementById('ollamaLed');
+  const label = document.getElementById('ollamaStatusLabel');
+  if (!led || !label) return;
+
+  label.textContent = 'Comprobando localhost:11434...';
+
   try {
-    if (!state.audioCtx) {
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      state.audioCtx = new AudioContextClass();
-    }
-    if (state.audioCtx.state === 'suspended') {
-      state.audioCtx.resume();
-    }
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1800);
+    const res = await fetch('http://localhost:11434/api/tags', { signal: controller.signal });
+    clearTimeout(timeoutId);
 
-    const ctx = state.audioCtx;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    const now = ctx.currentTime;
+    if (!res.ok) throw new Error('Status not OK');
+    const data = await res.json();
+    const models = data.models || [];
 
-    if (type === 'hover') {
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(520, now);
-      osc.frequency.exponentialRampToValueAtTime(680, now + 0.035);
-      gain.gain.setValueAtTime(0.025, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
-      osc.start(now);
-      osc.stop(now + 0.045);
-    } else if (type === 'expand') {
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(280, now);
-      osc.frequency.exponentialRampToValueAtTime(540, now + 0.11);
-      gain.gain.setValueAtTime(0.05, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-      osc.start(now);
-      osc.stop(now + 0.13);
-    } else if (type === 'stack') {
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(440, now);
-      osc.frequency.exponentialRampToValueAtTime(880, now + 0.09);
-      gain.gain.setValueAtTime(0.06, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-      osc.start(now);
-      osc.stop(now + 0.11);
+    // Detectar si tienes qwen2.5-coder instalado o usar el primer modelo disponible
+    const preferred = models.find(m => m.name.toLowerCase().includes('qwen')) || models[0];
+    if (preferred) {
+      state.ollamaModelName = preferred.name;
     }
 
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-  } catch (e) {}
+    state.ollamaOnline = true;
+    led.className = 'status-led online';
+    label.textContent = `Ollama Activo (${state.ollamaModelName})`;
+  } catch (err) {
+    state.ollamaOnline = false;
+    led.className = 'status-led offline';
+    label.textContent = 'Motor Local (Ollama desconectado)';
+  }
 }
 
-// ==================== FASE 1: LENIS SMOOTH SCROLL + VIEW TRANSITIONS ====================
+// ==================== LENIS SMOOTH SCROLL + VIEW TRANSITIONS ====================
 function initLenisSmoothScroll() {
   if (!window.Lenis) return;
   const bentoViewport = document.getElementById('bentoViewport');
@@ -222,7 +208,7 @@ function runWithViewTransition(fn) {
   }
 }
 
-// ==================== FASE 2: CONSTELACIÓN REACTIVA EN CANVAS 2D ====================
+// ==================== CONSTELACIÓN REACTIVA EN CANVAS 2D ====================
 function initBackgroundParticles() {
   const canvas = document.getElementById('particlesCanvas');
   if (!canvas) return;
@@ -286,7 +272,7 @@ function initBackgroundParticles() {
   requestAnimationFrame(animateParticles);
 }
 
-// ==================== FASE 2: NÚCLEO 3D WEBGL CON THREE.JS EN LA ESFERA CENTRAL ====================
+// ==================== NÚCLEO 3D WEBGL CON THREE.JS ====================
 function mountThreeRootCore(containerEl) {
   if (!window.THREE) return;
 
@@ -353,7 +339,7 @@ function setThreeCoreColor(hexColorStr) {
   state.threeCore.outerMat.color.set(hexColorStr);
 }
 
-// ==================== FASE 3: SANDBOX DE FÍSICAS 2D CON MATTER.JS EN STACK LAB ====================
+// ==================== SANDBOX DE FÍSICAS 2D CON MATTER.JS ====================
 function updateMatterPhysicsSandbox() {
   const wrap = document.getElementById('matterSandboxWrap');
   const canvas = document.getElementById('matterCanvas');
@@ -913,9 +899,6 @@ function openTechCard(toolId, pinIt = false) {
   const tool = state.tools.find(t => t.id === toolId);
   if (!tool) return;
 
-  if (state.activeToolId !== toolId) {
-    playStudioSfx('hover');
-  }
   markToolAsSeen(toolId);
 
   const card = document.getElementById('techCard');
@@ -1046,7 +1029,7 @@ function renderTree() {
   const centerX = 1800;
   const rootY = state.layout === 'matrix' ? 420 : 1300;
 
-  // 1. ESFERA CENTRAL CON NÚCLEO 3D THREE.JS (Fase 2)
+  // 1. ESFERA CENTRAL CON NÚCLEO 3D THREE.JS
   const rootEl = document.createElement('div');
   rootEl.className = 'node node-root';
   rootEl.style.left = `${centerX}px`;
@@ -1073,7 +1056,6 @@ function renderTree() {
 
   rootEl.addEventListener('click', (e) => {
     e.stopPropagation();
-    playStudioSfx('expand');
     if (state.expandedCategories.size === CATEGORIES.length) {
       state.expandedCategories.clear();
     } else {
@@ -1164,7 +1146,6 @@ function renderTree() {
 
     catEl.addEventListener('click', (e) => {
       e.stopPropagation();
-      playStudioSfx('expand');
       if (state.expandedCategories.has(cat.id)) {
         state.expandedCategories.delete(cat.id);
       } else {
@@ -1394,7 +1375,7 @@ function renderBento() {
   });
 }
 
-// ==================== FASE 4: ASESOR CON OLLAMA LOCAL + FALLBACK SEMÁNTICO ====================
+// ==================== ASESOR CON CATÁLOGO CERRADO ANTI-ALUCINACIONES ====================
 async function runProjectAdvisor(rawText) {
   const text = rawText.toLowerCase().trim();
   state.currentProject.description = rawText.trim();
@@ -1403,7 +1384,6 @@ async function runProjectAdvisor(rawText) {
   const container = document.getElementById('advisorResultsContainer');
   const btnPassAll = document.getElementById('btnPassAllToStack');
   const reasoningBox = document.getElementById('aiReasoningBox');
-  const useOllama = document.getElementById('chkUseOllama').checked;
 
   if (!text) {
     state.recommendedIds = [];
@@ -1414,9 +1394,7 @@ async function runProjectAdvisor(rawText) {
     return;
   }
 
-  playStudioSfx('expand');
-
-  // 1. Calcular ranking base inmediato
+  // 1. Puntuación determinista sobre el catálogo cerrado (Garantiza 0 tecnologías inventadas)
   const intentRules = [
     {
       match: ['portfolio', 'awwwards', 'landing', 'fluida', 'animada', 'animaciones', 'creativa', 'scroll', 'estudio'],
@@ -1468,7 +1446,7 @@ async function runProjectAdvisor(rawText) {
     ranked = state.tools.filter(t => def.includes(t.id)).map(t => ({ tool: t, score: 5 }));
   }
 
-  const topTools = ranked.slice(0, 10).map(r => r.tool);
+  let topTools = ranked.slice(0, 10).map(r => r.tool);
   state.recommendedIds = topTools.map(t => t.id);
 
   state.expandedCategories.clear();
@@ -1478,32 +1456,60 @@ async function runProjectAdvisor(rawText) {
   renderAdvisorList(topTools, rawText);
   renderAll();
 
-  // 2. Si el interruptor de Ollama Local está activo, consultar http://localhost:11434
-  if (useOllama) {
-    reasoningBox.style.display = 'block';
-    reasoningBox.textContent = '🧠 Consultando a tu Ollama local (localhost:11434)...';
+  // 2. Comprobar Ollama en tiempo real: solo puede elegir IDs válidos de state.tools (Cero alucinación)
+  await checkOllamaStatus();
+  reasoningBox.style.display = 'block';
+
+  if (state.ollamaOnline) {
+    reasoningBox.innerHTML = `🟢 <strong>Consultando a ${state.ollamaModelName} en local...</strong> (Restringido estrictamente a las ${state.tools.length} herramientas de tu catálogo)`;
     try {
-      const toolNames = topTools.map(t => t.name).join(', ');
+      const catalogList = state.tools.map(t => `${t.id}: ${t.name} (${t.badge})`).join('\n');
+      const strictPrompt = `Eres un arquitecto de software. El usuario quiere crear: "${rawText}".
+Elige entre 5 y 8 tecnologías ÚNICAMENTE de esta lista cerrada (PROHIBIDO inventar nombres o IDs fuera de esta lista):
+${catalogList}
+
+Responde SOLO en JSON con este formato exacto:
+{"selected_ids": ["id1", "id2"], "explicacion": "Breve explicación en español de 2 frases de cómo combinarlas."}`;
+
       const res = await fetch('http://localhost:11434/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'qwen2.5-coder:7b',
-          prompt: `En 2 frases breves en español, explica cómo combinar estas tecnologías (${toolNames}) para construir este proyecto: "${rawText}"`,
+          model: state.ollamaModelName,
+          prompt: strictPrompt,
+          format: 'json',
+          options: { temperature: 0.1 },
           stream: false
         })
       });
+
       if (res.ok) {
         const data = await res.json();
-        reasoningBox.innerHTML = `<strong>🧠 Arquitectura Ollama:</strong> ${data.response}`;
-      } else {
-        throw new Error('Modelo no disponible');
+        const parsed = JSON.parse(data.response);
+
+        // Filtrado estricto: descartar cualquier ID que no exista exactamente en state.tools
+        if (Array.isArray(parsed.selected_ids)) {
+          const verifiedTools = parsed.selected_ids
+            .map(id => state.tools.find(t => t.id === id))
+            .filter(Boolean);
+
+          if (verifiedTools.length >= 3) {
+            topTools = verifiedTools;
+            state.recommendedIds = topTools.map(t => t.id);
+            state.expandedCategories.clear();
+            topTools.forEach(t => state.expandedCategories.add(t.category));
+            renderAdvisorList(topTools, rawText);
+            renderAll();
+          }
+        }
+
+        reasoningBox.innerHTML = `🟢 <strong>Respuesta de tu IA Local (${state.ollamaModelName}):</strong> ${parsed.explicacion || 'Selección verificada contra el catálogo.'}`;
       }
     } catch (err) {
-      reasoningBox.innerHTML = `<strong>⚡ Análisis Instantáneo:</strong> Se han seleccionado <strong>${topTools.length} tecnologías</strong> clave desplegadas en el árbol. <em>(Para conectar Ollama en vivo, ejecuta OLLAMA_ORIGINS="*" ollama serve)</em>.`;
+      reasoningBox.innerHTML = `⚪ <strong>Motor Local Determinista:</strong> Se han seleccionado <strong>${topTools.length} tecnologías verificadas</strong> de tu catálogo.`;
     }
   } else {
-    reasoningBox.style.display = 'none';
+    reasoningBox.innerHTML = `⚪ <strong>Motor Local Determinista (Ollama apagado):</strong> Se han seleccionado <strong>${topTools.length} tecnologías reales</strong> de tu catálogo por coincidencia técnica.`;
   }
 }
 
@@ -1539,7 +1545,7 @@ function renderAdvisorList(topTools, rawText) {
   });
 }
 
-// ==================== FASE 4: GENERADOR DE STARTER KIT MULTI-FRAMEWORK ====================
+// ==================== GENERADOR DE STARTER KIT MULTI-FRAMEWORK ====================
 function generateStarterKitBlueprint() {
   const ids = state.currentProject.stackIds;
   const selected = ids.map(id => state.tools.find(t => t.id === id)).filter(Boolean);
@@ -1595,7 +1601,7 @@ ${slug}/
 `;
 }
 
-// ==================== FASE 4: SINCRONIZACIÓN SQL CON SUPABASE ====================
+// ==================== SINCRONIZACIÓN SQL CON SUPABASE ====================
 async function syncWithSupabase(direction = 'push') {
   const url = document.getElementById('supaUrlInput').value.trim().replace(/\/$/, '');
   const key = document.getElementById('supaKeyInput').value.trim();
@@ -1652,7 +1658,6 @@ async function syncWithSupabase(direction = 'push') {
 
 // STACK LAB INTEGRADO EN EL ASISTENTE
 function toggleToolInStack(toolId) {
-  playStudioSfx('stack');
   const list = state.currentProject.stackIds;
   const idx = list.indexOf(toolId);
   if (idx >= 0) {
@@ -1698,7 +1703,6 @@ function renderStackDock() {
 
 // GESTIÓN DE PROYECTOS GUARDADOS
 function saveCurrentProjectToLibrary() {
-  playStudioSfx('stack');
   const nameInput = document.getElementById('projectNameInput');
   const descInput = document.getElementById('advisorInput');
 
@@ -1850,7 +1854,6 @@ function populateModalCategories() {
 
 // ENLACE DE EVENTOS
 function bindEvents() {
-  // Cambio de vistas con View Transitions API (Fase 1)
   document.getElementById('btnViewTree').addEventListener('click', () => {
     runWithViewTransition(() => {
       state.view = 'tree';
@@ -1871,18 +1874,14 @@ function bindEvents() {
     });
   });
 
-  // Interruptores del Laboratorio (Audio y Partículas)
-  document.getElementById('btnToggleAudio').addEventListener('click', (e) => {
-    state.audioEnabled = !state.audioEnabled;
-    e.currentTarget.classList.toggle('active', state.audioEnabled);
-    e.currentTarget.textContent = state.audioEnabled ? '🔊 FX' : '🔇 FX';
-    if (state.audioEnabled) playStudioSfx('stack');
-  });
-
   document.getElementById('btnToggleParticles').addEventListener('click', (e) => {
     state.particlesEnabled = !state.particlesEnabled;
     e.currentTarget.classList.toggle('active', state.particlesEnabled);
     document.getElementById('particlesCanvas').classList.toggle('hidden', !state.particlesEnabled);
+  });
+
+  document.getElementById('btnCheckOllama').addEventListener('click', () => {
+    checkOllamaStatus();
   });
 
   document.getElementById('unreadCounterPill').addEventListener('click', () => {
@@ -1899,6 +1898,7 @@ function bindEvents() {
     const isOpen = studioPanel.classList.toggle('open');
     launcherBtn.classList.toggle('active', isOpen);
     studioPanel.setAttribute('aria-hidden', String(!isOpen));
+    if (isOpen) checkOllamaStatus();
   });
 
   document.getElementById('btnCloseStudio').addEventListener('click', () => {
@@ -1960,7 +1960,6 @@ function bindEvents() {
   });
 
   const setLayout = (mode) => {
-    playStudioSfx('expand');
     runWithViewTransition(() => {
       state.layout = mode;
       document.getElementById('btnLayoutMatrix').classList.toggle('active', mode === 'matrix');
@@ -2053,7 +2052,7 @@ function bindEvents() {
   document.getElementById('btnSaveStackAsProject').addEventListener('click', saveCurrentProjectToLibrary);
   document.getElementById('btnNewBlankProject').addEventListener('click', startNewBlankProject);
 
-  // Eventos de Sincronización SQL con Supabase (Fase 4)
+  // Sincronización SQL con Supabase
   document.getElementById('btnSyncSupaPush').addEventListener('click', () => syncWithSupabase('push'));
   document.getElementById('btnSyncSupaPull').addEventListener('click', () => syncWithSupabase('pull'));
   document.getElementById('btnCopySqlSchema').addEventListener('click', (e) => {
@@ -2064,7 +2063,7 @@ function bindEvents() {
     setTimeout(() => { btn.textContent = 'Copiar SQL'; }, 1500);
   });
 
-  // Eventos del Stack Lab + Físicas Matter.js + Starter Kit
+  // Stack Lab + Matter.js + Starter Kit
   document.getElementById('btnToggleMatter').addEventListener('click', () => {
     state.matterActive = !state.matterActive;
     renderStackDock();
@@ -2099,7 +2098,6 @@ function bindEvents() {
     renderAll();
   });
 
-  // Modal Starter Kit (Fase 4)
   const skModal = document.getElementById('starterKitModal');
   document.getElementById('btnOpenStarterKit').addEventListener('click', () => {
     document.getElementById('starterKitOutput').textContent = generateStarterKitBlueprint();
@@ -2122,7 +2120,6 @@ function bindEvents() {
     URL.revokeObjectURL(url);
   });
 
-  // Modal Añadir Tecnología
   const modal = document.getElementById('modalBackdrop');
   document.getElementById('btnOpenModal').addEventListener('click', () => modal.classList.add('open'));
   document.getElementById('btnCloseModal').addEventListener('click', () => modal.classList.remove('open'));

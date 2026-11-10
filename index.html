@@ -11,7 +11,7 @@
   <link href="https://api.fontshare.com/v2/css?f[]=clash-display@600,700&f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
 
-  <!-- Librerías de las 4 Fases (GSAP, Lenis, Three.js, Matter.js, Anime.js, Lucide) -->
+  <!-- Librerías (GSAP, Lenis, Three.js, Matter.js, Anime.js, Lucide) -->
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
   <script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -20,7 +20,7 @@
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
-  <!-- Fondo ambiental + Lienzo de Partículas Generativas (Fase 2) -->
+  <!-- Fondo ambiental + Lienzo de Partículas Generativas -->
   <div class="ambient-bg">
     <div class="glow glow-left"></div>
     <div class="glow glow-right"></div>
@@ -37,7 +37,7 @@
           <span class="logo-ring"></span>
         </div>
         <div class="brand-text">
-          <div class="brand-title">DEVTREE <span class="brand-tag">// PLAYGROUND v8</span></div>
+          <div class="brand-title">DEVTREE <span class="brand-tag">// PLAYGROUND v8.1</span></div>
           <div class="brand-subtitle" id="activeProjectHeader">Proyecto en curso (0 en Stack)</div>
         </div>
       </div>
@@ -61,12 +61,8 @@
         <span id="unreadCountText">0 nuevas sin leer</span>
       </div>
 
-      <!-- Interruptores del Laboratorio Vivo (Audio FX y Partículas) -->
       <button type="button" class="btn-lab-toggle active" id="btnToggleParticles">
         ✨ Fondo
-      </button>
-      <button type="button" class="btn-lab-toggle active" id="btnToggleAudio">
-        🔊 FX
       </button>
 
       <div class="search-box">
@@ -103,7 +99,7 @@
       <div class="bento-container" id="bentoContainer"></div>
     </section>
 
-    <!-- VENTANA DEL ASISTENTE (ASESOR + PROYECTOS + STACK LAB CON MATTER.JS ABAJO) -->
+    <!-- VENTANA DEL ASISTENTE (ASESOR + PROYECTOS + STACK LAB ABAJO) -->
     <aside class="studio-panel" id="studioPanel" aria-hidden="true">
       <div class="sp-top-bar">
         <div class="sp-tabs">
@@ -117,7 +113,7 @@
         <button type="button" class="btn-icon" id="btnCloseStudio" aria-label="Cerrar panel">✕</button>
       </div>
 
-      <!-- PESTAÑA 1: ASESOR CON CONEXIÓN OLLAMA LOCAL (Fase 4) -->
+      <!-- PESTAÑA 1: ASESOR CON VERIFICACIÓN OLLAMA LOCAL -->
       <div class="sp-pane active" id="paneAdvisor">
         <div class="sp-block">
           <label class="sp-label">Nombre del proyecto</label>
@@ -129,12 +125,13 @@
 
         <div class="sp-block">
           <div class="sp-header-inline">
-            <label class="sp-label">¿Qué quieres desarrollar?</label>
-            <label class="ollama-switch">
-              <input type="checkbox" id="chkUseOllama" checked />
-              <span>🧠 IA Local (Ollama)</span>
-            </label>
+            <label class="sp-label">Estado del motor IA</label>
+            <button type="button" class="ollama-status-pill" id="btnCheckOllama">
+              <span class="status-led" id="ollamaLed"></span>
+              <span id="ollamaStatusLabel">Comprobando Ollama...</span>
+            </button>
           </div>
+
           <textarea
             id="advisorInput"
             class="sp-textarea"
@@ -168,14 +165,14 @@
 
         <div class="sp-block">
           <div class="sp-header-inline">
-            <label class="sp-label">Tecnologías recomendadas</label>
+            <label class="sp-label">Tecnologías recomendadas (100% verificadas)</label>
             <button type="button" class="btn-ghost btn-xs" id="btnPassAllToStack" style="display:none;">
               Pasar todas al Stack Lab →
             </button>
           </div>
           <div id="advisorResultsContainer" class="advisor-results-box">
             <p class="empty-hint">
-              Describe tu proyecto arriba y pulsa <strong>Analizar y Recomendar</strong>. Las ramas recomendadas se desplegarán automáticamente en el árbol.
+              Describe tu proyecto arriba y pulsa <strong>Analizar y Recomendar</strong>. Solo se seleccionarán tecnologías reales de tu catálogo.
             </p>
           </div>
         </div>
@@ -198,7 +195,7 @@
           <div id="savedProjectsList" class="saved-projects-list"></div>
         </div>
 
-        <!-- Sincronización SQL con Supabase (Fase 4) -->
+        <!-- Sincronización SQL con Supabase -->
         <div class="sp-block supabase-box">
           <div class="sp-header-inline">
             <label class="sp-label">☁️ Sincronización SQL (Supabase)</label>
@@ -215,7 +212,7 @@
         </div>
       </div>
 
-      <!-- STACK LAB INTEGRADO ABAJO EN EL ASISTENTE + FÍSICAS MATTER.JS (Fase 3) -->
+      <!-- STACK LAB INTEGRADO ABAJO EN EL ASISTENTE + FÍSICAS MATTER.JS -->
       <div class="studio-stack-footer" id="stackDock">
         <div class="ssf-header">
           <div class="ssf-title-group">
@@ -232,10 +229,8 @@
           </div>
         </div>
 
-        <!-- Vista de Chips normales -->
         <div class="stack-dock-chips" id="stackDockChips"></div>
 
-        <!-- Lienzo de Físicas 2D con Gravedad Matter.js (Fase 3) -->
         <div class="matter-sandbox-wrap" id="matterSandboxWrap" style="display:none;">
           <canvas id="matterCanvas" width="380" height="135"></canvas>
           <span class="matter-hint">Agarra y lanza las tecnologías con el ratón (Matter.js)</span>
@@ -378,7 +373,7 @@
     </div>
   </div>
 
-  <!-- MODAL 2: GENERADOR DE STARTER KIT MULTI-FRAMEWORK (Fase 4) -->
+  <!-- MODAL 2: GENERADOR DE STARTER KIT MULTI-FRAMEWORK -->
   <div class="modal-backdrop" id="starterKitModal" aria-hidden="true">
     <div class="modal-card modal-wide">
       <div class="modal-header">

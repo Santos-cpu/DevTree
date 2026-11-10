@@ -32,7 +32,6 @@
   padding: 0;
 }
 
-/* View Transitions API Nativa (Fase 1) */
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation-duration: 0.28s;
@@ -52,7 +51,7 @@ body {
   text-rendering: geometricPrecision;
 }
 
-/* Fondo ambiental y partículas generativas (Fase 2) */
+/* Fondo ambiental y partículas generativas */
 .ambient-bg {
   position: fixed;
   inset: 0;
@@ -508,7 +507,7 @@ body {
   pointer-events: auto;
 }
 
-/* NODOS ALINEADOS A PÍXEL ENTERO + ESFERA 3D THREE.JS (Fase 2) */
+/* NODOS ALINEADOS A PÍXEL ENTERO + ESFERA 3D THREE.JS */
 .node {
   position: absolute;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
@@ -889,14 +888,42 @@ body {
   justify-content: space-between;
 }
 
-.ollama-switch {
+/* Indicador en vivo de estado de Ollama */
+.ollama-status-pill {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
   font-family: var(--font-mono);
-  font-size: 0.68rem;
-  color: var(--accent-primary);
+  font-size: 0.66rem;
   cursor: pointer;
+  transition: all 0.18s;
+}
+
+.ollama-status-pill:hover {
+  border-color: var(--border-highlight);
+  color: var(--text-main);
+}
+
+.status-led {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #94a3b8;
+}
+
+.status-led.online {
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+}
+
+.status-led.offline {
+  background: #f59e0b;
 }
 
 .ai-reasoning-box {
