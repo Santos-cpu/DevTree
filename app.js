@@ -25,7 +25,7 @@ const INITIAL_TOOLS = [
   { id: 'scrolltrigger', name: 'ScrollTrigger', category: 'motion', badge: 'Scrollytelling', url: 'https://gsap.com/docs/v3/Plugins/ScrollTrigger/', summary: 'Sincroniza cualquier línea de tiempo de GSAP con la rueda del ratón y permite fijar secciones en pantalla mientras avanzan.', useCase: 'Galerías de proyectos que se desplazan en horizontal al bajar por la web.', synergy: 'GSAP + Lenis Smooth Scroll', keywords: 'scrolltrigger scroll horizontal pin narrativo portfolio animacion', snippet: `ScrollTrigger.create({ trigger: ".panel", pin: true, scrub: 1 });` },
   { id: 'lenis', name: 'Lenis Smooth Scroll', category: 'motion', badge: 'Scroll Inercial Ligero', url: 'https://lenis.darkroom.engineering/', summary: 'Suaviza el desplazamiento de la página aportando peso e inercia orgánica sin romper elementos sticky ni el scroll nativo.', useCase: 'Dar sensación de fluidez de estudio a cualquier portfolio o landing page.', synergy: 'GSAP + Astro + Next.js', keywords: 'lenis smooth scroll suave fluido inercia awwwards', snippet: `const lenis = new Lenis({ lerp: 0.08, smoothWheel: true });` },
   { id: 'motion-dev', name: 'Motion (Framer)', category: 'motion', badge: 'Físicas de Muelles & Layout', url: 'https://motion.dev/', summary: 'Motor declarativo para React y JS con físicas de muelles reales, gestos táctiles y transiciones automáticas de layout.', useCase: 'Rejillas Bento y paneles que se reordenan suavemente al filtrar.', synergy: 'React + Next.js + Tailwind CSS', keywords: 'motion framer react fisicas muelles layout tarjetas bento', snippet: `<motion.div layout whileHover={{ scale: 1.03 }} />` },
-  { id: 'animejs', name: 'Anime.js v4', category: 'motion', badge: 'Trazos SVG & Cuadrículas', url: 'https://animejs.com/', summary: 'Librería modular ultraligera ideal para animar rutas vectoriales SVG, partículas y efectos escalonados en cuadrícula.', useCase: 'Animar grafos conectados, iconos técnicos y contadores numéricos.', synergy: 'Vanilla JS + SVG + Vite', keywords: 'animejs svg ligero animacion nodos', snippet: `animate("path", { strokeDashoffset: [120, 0], duration: 800 });` },
+  { id: 'animejs', name: 'Anime.js v4', category: 'motion', badge: 'Trazos SVG & Cuadrículas', url: 'https://animejs.com/', summary: 'Librería modular ultraligera ideal para animar rutas vectoriales SVG, partículas y efectos escalonados en cuadrícula.', useCase: 'Animar grafos conectados, iconos técnicos y contadores numéricos.', synergy: 'Vanilla JS + SVG + Vite', keywords: 'animejs svg ligero animacion nodos', snippet: `anime({ targets: "path", strokeDashoffset: [anime.setDashoffset, 0] });` },
   { id: 'barba-vt', name: 'Barba.js & View Transitions', category: 'motion', badge: 'Transiciones entre Páginas', url: 'https://barba.js.org/', summary: 'Transforma la navegación entre páginas en transiciones continuas y morfismos visuales sin recargas en blanco.', useCase: 'Hacer que la miniatura de un proyecto crezca hasta convertirse en su cabecera.', synergy: 'Astro + GSAP + CSS Moderno', keywords: 'transiciones pagina barba view transitions spa navegacion', snippet: `document.startViewTransition(() => cambiarContenido());` },
 
   // 3. 3D, WebGL & Shaders
@@ -62,9 +62,9 @@ const INITIAL_TOOLS = [
 
   // 7. Assets 3D, Fuentes & FX
   { id: 'blender', name: 'Blender 3D', category: 'assets', badge: 'Modelado 3D Open Source', url: 'https://www.blender.org/', summary: 'Suite gratuita completa para modelar, texturizar, animar y exportar objetos 3D en formato .glb comprimidos para la web.', useCase: 'Crear modelos 3D a medida para integrarlos con Three.js.', synergy: 'Three.js + Poly Haven', keywords: 'blender 3d modelado glb animacion texturas', snippet: `# Exporta en glTF 2.0 (.glb) activando compresión Draco` },
-  { id: 'fontshare', name: 'Fontshare & Google Fonts', category: 'assets', badge: 'Tipografías de Estudio Gratis', url: 'https://www.fontshare.com/', summary: 'Colecciones gratuitas de fuentes modernas (Clash Display, Satoshi, Space Grotesk) que elevan la personalidad visual al instante.', useCase: 'Titulares potentes con estética de agencia digital.', synergy: 'Tailwind CSS + GSAP SplitText', keywords: 'fontshare fuentes tipografia diseño titulares', snippet: `font-family: 'Space Grotesk', sans-serif;` },
-  { id: 'lucide-phosphor', name: 'Lucide & Phosphor Icons', category: 'assets', badge: 'Iconografía Vectorial SVG', url: 'https://lucide.dev/', summary: 'Miles de iconos vectoriales minimalistas y coherentes cuyos trazos SVG pueden colorearse y animarse por código.', useCase: 'Barras de navegación, botones de acción y tarjetas técnicas.', synergy: 'Tailwind CSS + HTML + React', keywords: 'lucide phosphor iconos svg interfaz botones', snippet: `npm install lucide` },
-  { id: 'howlerjs', name: 'Howler.js & Web Audio', category: 'assets', badge: 'Motor de Audio & FX Web', url: 'https://howlerjs.com/', summary: 'Simplifica el manejo de sonido en el navegador: listas de reproducción en streaming, fundidos y micro-efectos sonoros al hacer clic.', useCase: 'Reproductores musicales y feedback acústico sutil en interfaces.', synergy: 'JavaScript + Three.js + GSAP', keywords: 'howler audio sonido musica streaming reproductor efectos', snippet: `const sfx = new Howl({ src: ["hover.mp3"], volume: 0.2 });` },
+  { id: 'fontshare', name: 'Fontshare & Google Fonts', category: 'assets', badge: 'Tipografías de Estudio Gratis', url: 'https://www.fontshare.com/', summary: 'Colecciones gratuitas de fuentes modernas (Clash Display, Satoshi, Space Grotesk) que elevan la personalidad visual al instante.', useCase: 'Titulares potentes con estética de agencia digital.', synergy: 'Tailwind CSS + GSAP SplitText', keywords: 'fontshare fuentes tipografia diseño titulares', snippet: `font-family: 'Clash Display', sans-serif;` },
+  { id: 'lucide-phosphor', name: 'Lucide & Phosphor Icons', category: 'assets', badge: 'Iconografía Vectorial SVG', url: 'https://lucide.dev/', summary: 'Miles de iconos vectoriales minimalistas y coherentes cuyos trazos SVG pueden colorearse y animarse por código.', useCase: 'Barras de navegación, botones de acción y tarjetas técnicas.', synergy: 'Tailwind CSS + HTML + React', keywords: 'lucide phosphor iconos svg interfaz botones', snippet: `lucide.createIcons();` },
+  { id: 'howlerjs', name: 'Howler.js & Web Audio', category: 'assets', badge: 'Motor de Audio & FX Web', url: 'https://howlerjs.com/', summary: 'Simplifica el manejo de sonido en el navegador: listas de reproducción en streaming, fundidos y micro-efectos sonoros al hacer clic.', useCase: 'Reproductores musicales y feedback acústico sutil en interfaces.', synergy: 'JavaScript + Three.js + GSAP', keywords: 'howler audio sonido musica streaming reproductor efectos', snippet: `const ctx = new AudioContext();` },
   { id: 'squoosh-gltf', name: 'Squoosh & gltf-transform', category: 'assets', badge: 'Compresión Multimedia', url: 'https://squoosh.app/', summary: 'Optimiza imágenes a formato AVIF/WebP y reduce hasta un 85% el peso de modelos 3D para lograr tiempos de carga instantáneos.', useCase: 'Aligerar todas las capturas y modelos antes de subirlos a GitHub.', synergy: 'Astro + Three.js + Vercel', keywords: 'squoosh avif webp optimizacion rendimiento velocidad', snippet: `npx @gltf-transform/cli optimize in.glb out.glb --compress draco` },
   { id: 'polyhaven-sketchfab', name: 'Poly Haven & Sketchfab', category: 'assets', badge: 'Modelos 3D & Luces HDRI CC0', url: 'https://polyhaven.com/', summary: 'Bibliotecas gratuitas de mapas de iluminación HDRI de estudio, texturas PBR y modelos 3D descargables listos para WebGL.', useCase: 'Iluminar objetos 3D en Three.js con reflejos realistas sin coste.', synergy: 'Blender + Three.js + React Three Fiber', keywords: 'polyhaven sketchfab 3d modelos texturas hdri iluminacion gratis', snippet: `new RGBELoader().load("studio.hdr", (tex) => scene.environment = tex);` },
 
@@ -80,12 +80,13 @@ const INITIAL_TOOLS = [
 const INITIAL_IDS = new Set(INITIAL_TOOLS.map(t => t.id));
 
 // CLAVES LOCALSTORAGE
-const KEY_PROGRESS = 'devtree_v7_progress';
-const KEY_CUSTOM_TOOLS = 'devtree_v7_custom_tools';
-const KEY_SAVED_PROJECTS = 'devtree_v7_saved_projects';
-const KEY_ACTIVE_PROJECT = 'devtree_v7_active_project';
-const KEY_SEEN_TOOLS = 'devtree_v7_seen_tools';
-const KEY_DAILY_AUTO_CACHE = 'devtree_v7_daily_auto_cache';
+const KEY_PROGRESS = 'devtree_v8_progress';
+const KEY_CUSTOM_TOOLS = 'devtree_v8_custom_tools';
+const KEY_SAVED_PROJECTS = 'devtree_v8_saved_projects';
+const KEY_ACTIVE_PROJECT = 'devtree_v8_active_project';
+const KEY_SEEN_TOOLS = 'devtree_v8_seen_tools';
+const KEY_DAILY_AUTO_CACHE = 'devtree_v8_daily_auto_cache';
+const KEY_SUPA_CONFIG = 'devtree_v8_supa_config';
 
 // ESTADO GLOBAL
 const state = {
@@ -93,6 +94,9 @@ const state = {
   layout: 'matrix',
   expandedCategories: new Set(),
   stackFocusMode: false,
+  matterActive: false,
+  audioEnabled: true,
+  particlesEnabled: true,
   search: '',
   activeToolId: null,
   isCardPinned: false,
@@ -119,21 +123,346 @@ const state = {
     isDragging: false,
     dragStartX: 0,
     dragStartY: 0
-  }
+  },
+  // Referencias para motores en vivo (Three.js, Matter.js, Lenis, Web Audio)
+  threeCore: null,
+  matterInstance: null,
+  lenisBento: null,
+  audioCtx: null
 };
 
 let hoverOpenTimer = null;
 let hoverCloseTimer = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
+  if (window.lucide) window.lucide.createIcons();
   await loadAllData();
   populateModalCategories();
   bindEvents();
   centerCamera(true);
   startSmoothCameraLoop();
+  initLenisSmoothScroll();
+  initBackgroundParticles();
   renderAll();
 });
 
+// ==================== FASE 1: MOTOR DE SONIDO PROCEDURAL (WEB AUDIO API) ====================
+function playStudioSfx(type = 'hover') {
+  if (!state.audioEnabled) return;
+  try {
+    if (!state.audioCtx) {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      state.audioCtx = new AudioContextClass();
+    }
+    if (state.audioCtx.state === 'suspended') {
+      state.audioCtx.resume();
+    }
+
+    const ctx = state.audioCtx;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const now = ctx.currentTime;
+
+    if (type === 'hover') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(520, now);
+      osc.frequency.exponentialRampToValueAtTime(680, now + 0.035);
+      gain.gain.setValueAtTime(0.025, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+      osc.start(now);
+      osc.stop(now + 0.045);
+    } else if (type === 'expand') {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(280, now);
+      osc.frequency.exponentialRampToValueAtTime(540, now + 0.11);
+      gain.gain.setValueAtTime(0.05, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+      osc.start(now);
+      osc.stop(now + 0.13);
+    } else if (type === 'stack') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(440, now);
+      osc.frequency.exponentialRampToValueAtTime(880, now + 0.09);
+      gain.gain.setValueAtTime(0.06, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+      osc.start(now);
+      osc.stop(now + 0.11);
+    }
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+  } catch (e) {}
+}
+
+// ==================== FASE 1: LENIS SMOOTH SCROLL + VIEW TRANSITIONS ====================
+function initLenisSmoothScroll() {
+  if (!window.Lenis) return;
+  const bentoViewport = document.getElementById('bentoViewport');
+  state.lenisBento = new Lenis({
+    wrapper: bentoViewport,
+    content: document.getElementById('bentoContainer'),
+    lerp: 0.09,
+    smoothWheel: true
+  });
+
+  function raf(time) {
+    if (state.view === 'bento' && state.lenisBento) {
+      state.lenisBento.raf(time);
+    }
+    requestAnimationFrame(raf);
+  }
+  requestAnimationFrame(raf);
+}
+
+function runWithViewTransition(fn) {
+  if (document.startViewTransition) {
+    document.startViewTransition(() => fn());
+  } else {
+    fn();
+  }
+}
+
+// ==================== FASE 2: CONSTELACIÓN REACTIVA EN CANVAS 2D ====================
+function initBackgroundParticles() {
+  const canvas = document.getElementById('particlesCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  let width = (canvas.width = window.innerWidth);
+  let height = (canvas.height = window.innerHeight);
+  let mouseX = width / 2;
+  let mouseY = height / 2;
+
+  window.addEventListener('resize', () => {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+  });
+
+  const particles = Array.from({ length: 42 }, () => ({
+    x: Math.random() * width,
+    y: Math.random() * height,
+    vx: (Math.random() - 0.5) * 0.35,
+    vy: (Math.random() - 0.5) * 0.35,
+    r: Math.random() * 1.6 + 0.8
+  }));
+
+  function animateParticles() {
+    if (state.particlesEnabled) {
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.55)';
+
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+
+        if (p.x < 0) p.x = width;
+        if (p.x > width) p.x = 0;
+        if (p.y < 0) p.y = height;
+        if (p.y > height) p.y = 0;
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+
+        const dMouse = Math.hypot(p.x - mouseX, p.y - mouseY);
+        if (dMouse < 150) {
+          ctx.strokeStyle = `rgba(56, 189, 248, ${(1 - dMouse / 150) * 0.25})`;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(mouseX, mouseY);
+          ctx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(animateParticles);
+  }
+  requestAnimationFrame(animateParticles);
+}
+
+// ==================== FASE 2: NÚCLEO 3D WEBGL CON THREE.JS EN LA ESFERA CENTRAL ====================
+function mountThreeRootCore(containerEl) {
+  if (!window.THREE) return;
+
+  if (state.threeCore && state.threeCore.renderer) {
+    containerEl.prepend(state.threeCore.renderer.domElement);
+    return;
+  }
+
+  const width = 196;
+  const height = 196;
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+  camera.position.z = 3.1;
+
+  const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+  renderer.setSize(width, height);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.domElement.className = 'root-webgl-canvas';
+  containerEl.prepend(renderer.domElement);
+
+  const outerGeo = new THREE.IcosahedronGeometry(1.08, 1);
+  const outerMat = new THREE.MeshBasicMaterial({
+    color: 0x38bdf8,
+    wireframe: true,
+    transparent: true,
+    opacity: 0.35
+  });
+  const outerMesh = new THREE.Mesh(outerGeo, outerMat);
+  scene.add(outerMesh);
+
+  const innerGeo = new THREE.OctahedronGeometry(0.62, 0);
+  const innerMat = new THREE.MeshBasicMaterial({
+    color: 0xa855f7,
+    wireframe: true,
+    transparent: true,
+    opacity: 0.55
+  });
+  const innerMesh = new THREE.Mesh(innerGeo, innerMat);
+  scene.add(innerMesh);
+
+  state.threeCore = {
+    renderer,
+    outerMesh,
+    innerMesh,
+    outerMat,
+    innerMat,
+    speedMultiplier: 1
+  };
+
+  function animateThree() {
+    requestAnimationFrame(animateThree);
+    const mult = state.threeCore.speedMultiplier;
+    outerMesh.rotation.y += 0.005 * mult;
+    outerMesh.rotation.x += 0.003 * mult;
+    innerMesh.rotation.y -= 0.008 * mult;
+    innerMesh.rotation.z += 0.004 * mult;
+    renderer.render(scene, camera);
+  }
+  animateThree();
+}
+
+function setThreeCoreColor(hexColorStr) {
+  if (!state.threeCore || !window.THREE) return;
+  state.threeCore.outerMat.color.set(hexColorStr);
+}
+
+// ==================== FASE 3: SANDBOX DE FÍSICAS 2D CON MATTER.JS EN STACK LAB ====================
+function updateMatterPhysicsSandbox() {
+  const wrap = document.getElementById('matterSandboxWrap');
+  const canvas = document.getElementById('matterCanvas');
+  if (!state.matterActive || !window.Matter) {
+    wrap.style.display = 'none';
+    if (state.matterInstance) {
+      Matter.Render.stop(state.matterInstance.render);
+      Matter.Runner.stop(state.matterInstance.runner);
+      state.matterInstance = null;
+    }
+    return;
+  }
+
+  wrap.style.display = 'block';
+
+  if (state.matterInstance) {
+    Matter.Render.stop(state.matterInstance.render);
+    Matter.Runner.stop(state.matterInstance.runner);
+    state.matterInstance = null;
+  }
+
+  const { Engine, Render, Runner, Bodies, Composite, Mouse, MouseConstraint } = Matter;
+  const engine = Engine.create();
+  const width = 384;
+  const height = 135;
+
+  const render = Render.create({
+    canvas,
+    engine,
+    options: {
+      width,
+      height,
+      wireframes: false,
+      background: 'transparent',
+      pixelRatio: Math.min(window.devicePixelRatio, 2)
+    }
+  });
+
+  const ground = Bodies.rectangle(width / 2, height + 12, width, 24, { isStatic: true });
+  const leftWall = Bodies.rectangle(-12, height / 2, 24, height, { isStatic: true });
+  const rightWall = Bodies.rectangle(width + 12, height / 2, 24, height, { isStatic: true });
+  const ceiling = Bodies.rectangle(width / 2, -20, width, 24, { isStatic: true });
+
+  const pillBodies = [];
+  const ids = state.currentProject.stackIds.length > 0
+    ? state.currentProject.stackIds
+    : ['gsap', 'lenis', 'threejs', 'astro', 'tailwind'];
+
+  ids.forEach((id, i) => {
+    const tool = state.tools.find(t => t.id === id);
+    if (!tool) return;
+    const cat = CATEGORIES.find(c => c.id === tool.category);
+    const color = cat ? cat.color : '#38bdf8';
+    const label = tool.name.replace(' [NUEVO]', '').slice(0, 14);
+    const pillW = Math.max(68, label.length * 7 + 18);
+
+    const body = Bodies.rectangle(
+      50 + ((i * 65) % (width - 100)),
+      15 + (i * 12) % 45,
+      pillW,
+      24,
+      {
+        chamfer: { radius: 10 },
+        restitution: 0.65,
+        friction: 0.08,
+        render: {
+          fillStyle: 'rgba(18, 26, 42, 0.95)',
+          strokeStyle: color,
+          lineWidth: 2
+        },
+        plugin: { label, color }
+      }
+    );
+    pillBodies.push(body);
+  });
+
+  Composite.add(engine.world, [ground, leftWall, rightWall, ceiling, ...pillBodies]);
+
+  const mouse = Mouse.create(render.canvas);
+  const mouseConstraint = MouseConstraint.create(engine, {
+    mouse,
+    constraint: { stiffness: 0.2, render: { visible: false } }
+  });
+  Composite.add(engine.world, mouseConstraint);
+
+  Matter.Events.on(render, 'afterRender', () => {
+    const ctx = render.context;
+    ctx.font = '600 10px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    pillBodies.forEach(b => {
+      ctx.save();
+      ctx.translate(b.position.x, b.position.y);
+      ctx.rotate(b.angle);
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillText(b.plugin.label, 0, 1);
+      ctx.restore();
+    });
+  });
+
+  Render.run(render);
+  const runner = Runner.create();
+  Runner.run(runner, engine);
+
+  state.matterInstance = { engine, render, runner };
+}
+
+// ==================== CARGA DE DATOS + DESCUBRIMIENTO DIARIO ====================
 async function loadAllData() {
   try {
     const prog = localStorage.getItem(KEY_PROGRESS);
@@ -145,6 +474,13 @@ async function loadAllData() {
     } else {
       state.seenToolIds = new Set(INITIAL_IDS);
       persistSeenTools();
+    }
+
+    const supaRaw = localStorage.getItem(KEY_SUPA_CONFIG);
+    if (supaRaw) {
+      const supa = JSON.parse(supaRaw);
+      document.getElementById('supaUrlInput').value = supa.url || '';
+      document.getElementById('supaKeyInput').value = supa.key || '';
     }
 
     const custom = localStorage.getItem(KEY_CUSTOM_TOOLS);
@@ -471,6 +807,9 @@ function focusBranchWithGSAP(activeCatId, specificToolId = null) {
   const activeCoords = state.categoryCoords.get(activeCatId);
   if (!activeCoords) return;
 
+  const activeCatObj = CATEGORIES.find(c => c.id === activeCatId);
+  if (activeCatObj) setThreeCoreColor(activeCatObj.color);
+
   CATEGORIES.forEach(cat => {
     const nodeGroup = document.querySelector(`.branch-node-group[data-cat-id="${cat.id}"]`);
     const svgGroup = svg.querySelector(`.branch-svg-group[data-cat-id="${cat.id}"]`);
@@ -532,6 +871,8 @@ function resetBranchesWithGSAP() {
   const allNodeGroups = document.querySelectorAll('.branch-node-group');
   const allSvgGroups = svg.querySelectorAll('.branch-svg-group');
 
+  setThreeCoreColor('#38bdf8');
+
   if (window.gsap) {
     gsap.to([...allNodeGroups, ...allSvgGroups], {
       x: 0,
@@ -572,6 +913,9 @@ function openTechCard(toolId, pinIt = false) {
   const tool = state.tools.find(t => t.id === toolId);
   if (!tool) return;
 
+  if (state.activeToolId !== toolId) {
+    playStudioSfx('hover');
+  }
   markToolAsSeen(toolId);
 
   const card = document.getElementById('techCard');
@@ -688,6 +1032,7 @@ function renderAll() {
   renderStackDock();
   renderSavedProjectsList();
   updateCategoryAndTopNewBadges();
+  if (state.matterActive) updateMatterPhysicsSandbox();
 }
 
 // RENDERIZADO DEL ÁRBOL
@@ -701,27 +1046,34 @@ function renderTree() {
   const centerX = 1800;
   const rootY = state.layout === 'matrix' ? 420 : 1300;
 
-  // 1. ESFERA CENTRAL
+  // 1. ESFERA CENTRAL CON NÚCLEO 3D THREE.JS (Fase 2)
   const rootEl = document.createElement('div');
   rootEl.className = 'node node-root';
   rootEl.style.left = `${centerX}px`;
   rootEl.style.top = `${rootY}px`;
   const allExpanded = state.expandedCategories.size === CATEGORIES.length;
   rootEl.innerHTML = `
-    <span class="node-root-tag">CORE ATLAS</span>
+    <span class="node-root-tag">THREE.JS CORE</span>
     <div class="node-root-title">${state.currentProject.name ? state.currentProject.name.toUpperCase() : 'STACK PRO'}</div>
     <span class="node-root-sub">${allExpanded ? 'Clic para plegar ramas' : 'Clic para desplegar todas'}</span>
   `;
 
+  mountThreeRootCore(rootEl);
+
   rootEl.addEventListener('mouseenter', () => {
+    if (state.threeCore) state.threeCore.speedMultiplier = 3.2;
     svg.querySelectorAll('[data-edge^="cat-"]').forEach(p => {
       p.classList.add(p.classList.contains('edge-base') ? 'edge-active-base' : 'edge-active-pulse');
     });
   });
-  rootEl.addEventListener('mouseleave', () => resetBranchesWithGSAP());
+  rootEl.addEventListener('mouseleave', () => {
+    if (state.threeCore) state.threeCore.speedMultiplier = 1;
+    resetBranchesWithGSAP();
+  });
 
   rootEl.addEventListener('click', (e) => {
     e.stopPropagation();
+    playStudioSfx('expand');
     if (state.expandedCategories.size === CATEGORIES.length) {
       state.expandedCategories.clear();
     } else {
@@ -812,6 +1164,7 @@ function renderTree() {
 
     catEl.addEventListener('click', (e) => {
       e.stopPropagation();
+      playStudioSfx('expand');
       if (state.expandedCategories.has(cat.id)) {
         state.expandedCategories.delete(cat.id);
       } else {
@@ -1041,23 +1394,29 @@ function renderBento() {
   });
 }
 
-// MOTOR DEL ASESOR DE PROYECTOS
-function runProjectAdvisor(rawText) {
+// ==================== FASE 4: ASESOR CON OLLAMA LOCAL + FALLBACK SEMÁNTICO ====================
+async function runProjectAdvisor(rawText) {
   const text = rawText.toLowerCase().trim();
   state.currentProject.description = rawText.trim();
   persistActiveProject();
 
   const container = document.getElementById('advisorResultsContainer');
   const btnPassAll = document.getElementById('btnPassAllToStack');
+  const reasoningBox = document.getElementById('aiReasoningBox');
+  const useOllama = document.getElementById('chkUseOllama').checked;
 
   if (!text) {
     state.recommendedIds = [];
     btnPassAll.style.display = 'none';
+    reasoningBox.style.display = 'none';
     container.innerHTML = `<p class="empty-hint">Describe tu proyecto arriba y pulsa <strong>Analizar y Recomendar</strong>.</p>`;
     renderAll();
     return;
   }
 
+  playStudioSfx('expand');
+
+  // 1. Calcular ranking base inmediato
   const intentRules = [
     {
       match: ['portfolio', 'awwwards', 'landing', 'fluida', 'animada', 'animaciones', 'creativa', 'scroll', 'estudio'],
@@ -1116,6 +1475,40 @@ function runProjectAdvisor(rawText) {
   topTools.forEach(t => state.expandedCategories.add(t.category));
 
   btnPassAll.style.display = 'inline-flex';
+  renderAdvisorList(topTools, rawText);
+  renderAll();
+
+  // 2. Si el interruptor de Ollama Local está activo, consultar http://localhost:11434
+  if (useOllama) {
+    reasoningBox.style.display = 'block';
+    reasoningBox.textContent = '🧠 Consultando a tu Ollama local (localhost:11434)...';
+    try {
+      const toolNames = topTools.map(t => t.name).join(', ');
+      const res = await fetch('http://localhost:11434/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'qwen2.5-coder:7b',
+          prompt: `En 2 frases breves en español, explica cómo combinar estas tecnologías (${toolNames}) para construir este proyecto: "${rawText}"`,
+          stream: false
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        reasoningBox.innerHTML = `<strong>🧠 Arquitectura Ollama:</strong> ${data.response}`;
+      } else {
+        throw new Error('Modelo no disponible');
+      }
+    } catch (err) {
+      reasoningBox.innerHTML = `<strong>⚡ Análisis Instantáneo:</strong> Se han seleccionado <strong>${topTools.length} tecnologías</strong> clave desplegadas en el árbol. <em>(Para conectar Ollama en vivo, ejecuta OLLAMA_ORIGINS="*" ollama serve)</em>.`;
+    }
+  } else {
+    reasoningBox.style.display = 'none';
+  }
+}
+
+function renderAdvisorList(topTools, rawText) {
+  const container = document.getElementById('advisorResultsContainer');
   container.innerHTML = '';
 
   topTools.forEach(tool => {
@@ -1138,18 +1531,128 @@ function runProjectAdvisor(rawText) {
     row.querySelector('.node-stack-btn').addEventListener('click', (e) => {
       e.stopPropagation();
       toggleToolInStack(tool.id);
-      runProjectAdvisor(rawText);
+      renderAdvisorList(topTools, rawText);
     });
 
     row.addEventListener('click', () => openTechCard(tool.id, true));
     container.appendChild(row);
   });
+}
 
-  renderAll();
+// ==================== FASE 4: GENERADOR DE STARTER KIT MULTI-FRAMEWORK ====================
+function generateStarterKitBlueprint() {
+  const ids = state.currentProject.stackIds;
+  const selected = ids.map(id => state.tools.find(t => t.id === id)).filter(Boolean);
+  const projName = state.currentProject.name.trim() || 'mi-proyecto-pro';
+  const slug = projName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+  const npmPackages = [];
+  if (ids.includes('gsap') || ids.includes('scrolltrigger')) npmPackages.push('gsap');
+  if (ids.includes('lenis')) npmPackages.push('lenis');
+  if (ids.includes('threejs') || ids.includes('r3f')) npmPackages.push('three');
+  if (ids.includes('motion-dev')) npmPackages.push('motion');
+  if (ids.includes('animejs')) npmPackages.push('animejs');
+  if (ids.includes('matterjs')) npmPackages.push('matter-js');
+  if (ids.includes('rive')) npmPackages.push('@rive-app/canvas');
+  if (ids.includes('lottie')) npmPackages.push('@lottiefiles/dotlottie-web');
+  if (ids.includes('supabase')) npmPackages.push('@supabase/supabase-js');
+  if (ids.includes('firebase')) npmPackages.push('firebase');
+  if (ids.includes('howlerjs')) npmPackages.push('howler');
+  if (ids.includes('lucide-phosphor')) npmPackages.push('lucide');
+
+  let baseInitCmd = `npm create vite@latest ${slug}`;
+  if (ids.includes('astro')) baseInitCmd = `npm create astro@latest ${slug}`;
+  else if (ids.includes('nextjs')) baseInitCmd = `npx create-next-app@latest ${slug} --typescript --tailwind`;
+  else if (ids.includes('sveltekit')) baseInitCmd = `npx sv create ${slug}`;
+
+  const installCmd = npmPackages.length > 0 ? `npm install ${npmPackages.join(' ')}` : `# Sin paquetes NPM adicionales seleccionados`;
+
+  return `# 🚀 ${projName.toUpperCase()} — Starter Kit Blueprint
+Generado automáticamente por DevTree Studio OS
+
+## 1. Tecnologías en tu Stack (${selected.length})
+${selected.map(t => `- **${t.name.replace(' [NUEVO]', '')}** (${t.badge}): ${t.url}`).join('\n') || '- Ninguna seleccionada aún'}
+
+## 2. Comandos de Inicialización Rápida
+\`\`\`bash
+${baseInitCmd}
+cd ${slug}
+${installCmd}
+\`\`\`
+
+## 3. Estructura de Proyecto Recomendada
+\`\`\`text
+${slug}/
+├── src/
+│   ├── components/      # Bloques UI reutilizables y tarjetas Bento
+│   ├── core/            # Inicialización de Lenis, GSAP y Three.js
+│   ├── services/        # Cliente de base de datos (Supabase / Firebase / API)
+│   └── styles/          # Tokens de diseño y utilidades CSS
+├── scripts/             # Automatizaciones en Python / CI-CD
+├── docker-compose.yml   # Contenedores locales (PostgreSQL / Ollama)
+└── README.md
+\`\`\`
+`;
+}
+
+// ==================== FASE 4: SINCRONIZACIÓN SQL CON SUPABASE ====================
+async function syncWithSupabase(direction = 'push') {
+  const url = document.getElementById('supaUrlInput').value.trim().replace(/\/$/, '');
+  const key = document.getElementById('supaKeyInput').value.trim();
+  const statusEl = document.getElementById('supaStatusText');
+
+  if (!url || !key) {
+    statusEl.textContent = '⚠️ Introduce tu Supabase URL y Anon Key primero.';
+    return;
+  }
+
+  localStorage.setItem(KEY_SUPA_CONFIG, JSON.stringify({ url, key }));
+  statusEl.textContent = direction === 'push' ? 'Subiendo proyectos a PostgreSQL...' : 'Descargando desde PostgreSQL...';
+
+  try {
+    if (direction === 'push') {
+      const res = await fetch(`${url}/rest/v1/devtree_backups`, {
+        method: 'POST',
+        headers: {
+          'apikey': key,
+          'Authorization': `Bearer ${key}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify({
+          id: 'main_profile',
+          saved_projects: state.savedProjects,
+          updated_at: new Date().toISOString()
+        })
+      });
+      if (!res.ok) throw new Error('Verifica que creaste la tabla con el botón Copiar SQL');
+      statusEl.textContent = '✓ Proyectos sincronizados en Supabase PostgreSQL';
+    } else {
+      const res = await fetch(`${url}/rest/v1/devtree_backups?id=eq.main_profile&select=*`, {
+        headers: {
+          'apikey': key,
+          'Authorization': `Bearer ${key}`
+        }
+      });
+      if (!res.ok) throw new Error('Error al leer tabla');
+      const rows = await res.json();
+      if (rows.length > 0 && Array.isArray(rows[0].saved_projects)) {
+        state.savedProjects = rows[0].saved_projects;
+        persistSavedProjects();
+        renderAll();
+        statusEl.textContent = `✓ ${state.savedProjects.length} proyectos recuperados de la nube`;
+      } else {
+        statusEl.textContent = 'No había backups previos en la tabla.';
+      }
+    }
+  } catch (err) {
+    statusEl.textContent = `Aviso: ${err.message}`;
+  }
 }
 
 // STACK LAB INTEGRADO EN EL ASISTENTE
 function toggleToolInStack(toolId) {
+  playStudioSfx('stack');
   const list = state.currentProject.stackIds;
   const idx = list.indexOf(toolId);
   if (idx >= 0) {
@@ -1168,11 +1671,13 @@ function renderStackDock() {
   const chipsContainer = document.getElementById('stackDockChips');
   const countBadge = document.getElementById('stackCountBadge');
   const focusBtn = document.getElementById('btnToggleStackFocus');
+  const matterBtn = document.getElementById('btnToggleMatter');
 
   const ids = state.currentProject.stackIds;
   countBadge.textContent = `${ids.length} en el proyecto`;
   focusBtn.classList.toggle('active', state.stackFocusMode);
-  focusBtn.textContent = state.stackFocusMode ? '🎯 Viendo mi Stack (Ver todo)' : '🎯 Ver solo mi Stack';
+  focusBtn.textContent = state.stackFocusMode ? '🎯 Viendo mi Stack' : '🎯 Solo mi Stack';
+  matterBtn.classList.toggle('active', state.matterActive);
 
   if (ids.length === 0) {
     chipsContainer.innerHTML = `<span class="stack-dock-empty">Usa el Asesor o pulsa "+S" en cualquier nodo para armar el Stack de tu proyecto.</span>`;
@@ -1193,6 +1698,7 @@ function renderStackDock() {
 
 // GESTIÓN DE PROYECTOS GUARDADOS
 function saveCurrentProjectToLibrary() {
+  playStudioSfx('stack');
   const nameInput = document.getElementById('projectNameInput');
   const descInput = document.getElementById('advisorInput');
 
@@ -1269,6 +1775,7 @@ function startNewBlankProject() {
   document.getElementById('advisorInput').value = '';
   document.getElementById('advisorResultsContainer').innerHTML = `<p class="empty-hint">Describe tu nuevo proyecto arriba.</p>`;
   document.getElementById('btnPassAllToStack').style.display = 'none';
+  document.getElementById('aiReasoningBox').style.display = 'none';
 
   persistActiveProject();
   renderAll();
@@ -1343,20 +1850,39 @@ function populateModalCategories() {
 
 // ENLACE DE EVENTOS
 function bindEvents() {
+  // Cambio de vistas con View Transitions API (Fase 1)
   document.getElementById('btnViewTree').addEventListener('click', () => {
-    state.view = 'tree';
-    document.getElementById('btnViewTree').classList.add('active');
-    document.getElementById('btnViewBento').classList.remove('active');
-    document.getElementById('treeViewport').classList.add('active');
-    document.getElementById('bentoViewport').classList.remove('active');
+    runWithViewTransition(() => {
+      state.view = 'tree';
+      document.getElementById('btnViewTree').classList.add('active');
+      document.getElementById('btnViewBento').classList.remove('active');
+      document.getElementById('treeViewport').classList.add('active');
+      document.getElementById('bentoViewport').classList.remove('active');
+    });
   });
 
   document.getElementById('btnViewBento').addEventListener('click', () => {
-    state.view = 'bento';
-    document.getElementById('btnViewBento').classList.add('active');
-    document.getElementById('btnViewTree').classList.remove('active');
-    document.getElementById('bentoViewport').classList.add('active');
-    document.getElementById('treeViewport').classList.remove('active');
+    runWithViewTransition(() => {
+      state.view = 'bento';
+      document.getElementById('btnViewBento').classList.add('active');
+      document.getElementById('btnViewTree').classList.remove('active');
+      document.getElementById('bentoViewport').classList.add('active');
+      document.getElementById('treeViewport').classList.remove('active');
+    });
+  });
+
+  // Interruptores del Laboratorio (Audio y Partículas)
+  document.getElementById('btnToggleAudio').addEventListener('click', (e) => {
+    state.audioEnabled = !state.audioEnabled;
+    e.currentTarget.classList.toggle('active', state.audioEnabled);
+    e.currentTarget.textContent = state.audioEnabled ? '🔊 FX' : '🔇 FX';
+    if (state.audioEnabled) playStudioSfx('stack');
+  });
+
+  document.getElementById('btnToggleParticles').addEventListener('click', (e) => {
+    state.particlesEnabled = !state.particlesEnabled;
+    e.currentTarget.classList.toggle('active', state.particlesEnabled);
+    document.getElementById('particlesCanvas').classList.toggle('hidden', !state.particlesEnabled);
   });
 
   document.getElementById('unreadCounterPill').addEventListener('click', () => {
@@ -1434,12 +1960,15 @@ function bindEvents() {
   });
 
   const setLayout = (mode) => {
-    state.layout = mode;
-    document.getElementById('btnLayoutMatrix').classList.toggle('active', mode === 'matrix');
-    document.getElementById('btnLayoutWing').classList.toggle('active', mode === 'wing');
-    document.getElementById('btnLayoutOrbital').classList.toggle('active', mode === 'orbital');
-    renderTree();
-    centerCamera(false);
+    playStudioSfx('expand');
+    runWithViewTransition(() => {
+      state.layout = mode;
+      document.getElementById('btnLayoutMatrix').classList.toggle('active', mode === 'matrix');
+      document.getElementById('btnLayoutWing').classList.toggle('active', mode === 'wing');
+      document.getElementById('btnLayoutOrbital').classList.toggle('active', mode === 'orbital');
+      renderTree();
+      centerCamera(false);
+    });
   };
 
   document.getElementById('btnLayoutMatrix').addEventListener('click', () => setLayout('matrix'));
@@ -1451,7 +1980,6 @@ function bindEvents() {
     renderAll();
   });
 
-  // Navegación Pan & Zoom + Doble clic en el lienzo para centrar
   const treeViewport = document.getElementById('treeViewport');
 
   treeViewport.addEventListener('mousedown', (e) => {
@@ -1525,14 +2053,33 @@ function bindEvents() {
   document.getElementById('btnSaveStackAsProject').addEventListener('click', saveCurrentProjectToLibrary);
   document.getElementById('btnNewBlankProject').addEventListener('click', startNewBlankProject);
 
-  // Stack Lab en la base del Asistente
+  // Eventos de Sincronización SQL con Supabase (Fase 4)
+  document.getElementById('btnSyncSupaPush').addEventListener('click', () => syncWithSupabase('push'));
+  document.getElementById('btnSyncSupaPull').addEventListener('click', () => syncWithSupabase('pull'));
+  document.getElementById('btnCopySqlSchema').addEventListener('click', (e) => {
+    const sql = `CREATE TABLE IF NOT EXISTS devtree_backups (\n  id TEXT PRIMARY KEY,\n  saved_projects JSONB,\n  updated_at TIMESTAMPTZ DEFAULT NOW()\n);`;
+    navigator.clipboard.writeText(sql);
+    const btn = e.currentTarget;
+    btn.textContent = '¡SQL Copiado!';
+    setTimeout(() => { btn.textContent = 'Copiar SQL'; }, 1500);
+  });
+
+  // Eventos del Stack Lab + Físicas Matter.js + Starter Kit
+  document.getElementById('btnToggleMatter').addEventListener('click', () => {
+    state.matterActive = !state.matterActive;
+    renderStackDock();
+    updateMatterPhysicsSandbox();
+  });
+
   document.getElementById('btnToggleStackFocus').addEventListener('click', () => {
     if (state.currentProject.stackIds.length === 0 && !state.stackFocusMode) {
       alert('Añade primero al menos una tecnología a tu Stack Lab (o usa el Asesor) para activar el Modo Enfoque.');
       return;
     }
-    state.stackFocusMode = !state.stackFocusMode;
-    renderAll();
+    runWithViewTransition(() => {
+      state.stackFocusMode = !state.stackFocusMode;
+      renderAll();
+    });
   });
 
   document.getElementById('btnCopyStackCmd').addEventListener('click', () => {
@@ -1542,7 +2089,7 @@ function bindEvents() {
     navigator.clipboard.writeText(text);
     const btn = document.getElementById('btnCopyStackCmd');
     btn.textContent = '¡Copiado!';
-    setTimeout(() => { btn.textContent = 'Copiar Lista'; }, 1400);
+    setTimeout(() => { btn.textContent = 'Copiar'; }, 1400);
   });
 
   document.getElementById('btnClearStack').addEventListener('click', () => {
@@ -1552,6 +2099,30 @@ function bindEvents() {
     renderAll();
   });
 
+  // Modal Starter Kit (Fase 4)
+  const skModal = document.getElementById('starterKitModal');
+  document.getElementById('btnOpenStarterKit').addEventListener('click', () => {
+    document.getElementById('starterKitOutput').textContent = generateStarterKitBlueprint();
+    skModal.classList.add('open');
+  });
+  document.getElementById('btnCloseStarterKit').addEventListener('click', () => skModal.classList.remove('open'));
+  document.getElementById('btnCopyStarterKit').addEventListener('click', (e) => {
+    navigator.clipboard.writeText(document.getElementById('starterKitOutput').textContent);
+    e.currentTarget.textContent = '¡Copiado!';
+    setTimeout(() => { e.currentTarget.textContent = 'Copiar Blueprint'; }, 1400);
+  });
+  document.getElementById('btnDownloadStarterKit').addEventListener('click', () => {
+    const content = document.getElementById('starterKitOutput').textContent;
+    const blob = new Blob([content], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'STARTER_KIT.md';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // Modal Añadir Tecnología
   const modal = document.getElementById('modalBackdrop');
   document.getElementById('btnOpenModal').addEventListener('click', () => modal.classList.add('open'));
   document.getElementById('btnCloseModal').addEventListener('click', () => modal.classList.remove('open'));
