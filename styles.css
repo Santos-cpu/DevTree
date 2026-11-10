@@ -32,12 +32,6 @@
   padding: 0;
 }
 
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation-duration: 0.28s;
-  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
-}
-
 body {
   background-color: var(--bg-base);
   color: var(--text-main);
@@ -215,7 +209,6 @@ body {
   color: #fff;
 }
 
-/* Botón Limpiar Filtro en la barra superior */
 .btn-lab-toggle {
   height: var(--control-h);
   padding: 0 12px;
@@ -369,7 +362,7 @@ body {
   font-size: 0.7rem;
 }
 
-/* WORKSPACE Y LIENZO LIMPIO A PANTALLA COMPLETA */
+/* WORKSPACE Y COEXISTENCIA ESPACIAL DE VISTAS PARA MORPHING FLIP */
 .workspace {
   position: relative;
   flex: 1;
@@ -382,12 +375,17 @@ body {
   inset: 0;
   overflow: hidden;
   cursor: grab;
-  display: none;
   touch-action: none;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.48s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.48s;
 }
 
 .tree-viewport.active {
-  display: block;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .tree-viewport.dragging {
@@ -401,6 +399,7 @@ body {
   z-index: 15;
   display: flex;
   align-items: center;
+  transition: opacity 0.35s ease, transform 0.35s ease;
 }
 
 .hud-group {
@@ -454,6 +453,7 @@ body {
   width: 100%;
   height: 100%;
   pointer-events: none;
+  transition: opacity 0.42s ease;
 }
 
 .edge-base {
@@ -514,7 +514,7 @@ body {
 /* NODOS ALINEADOS A PÍXEL ENTERO + ESFERA 3D THREE.JS */
 .node {
   position: absolute;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, opacity 0.35s ease;
 }
 
 .node-root {
@@ -784,6 +784,197 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* VISTA BENTO (Coexiste en layout para permitir medición de coordenadas FLIP) */
+.bento-viewport {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  padding: 24px 425px 40px 28px;
+  user-select: text;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.48s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.48s;
+}
+
+.bento-viewport.active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.bento-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.bento-group-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 8px;
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.bento-group-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.bento-group-title {
+  font-family: var(--font-display);
+  font-size: 1.02rem;
+  font-weight: 700;
+}
+
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.bento-card {
+  position: relative;
+  height: 190px;
+  background: rgba(14, 20, 32, 0.88);
+  border: 1px solid var(--border-subtle);
+  border-top: 2.5px solid var(--cat-color);
+  border-radius: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.bento-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--cat-color);
+  box-shadow: 0 10px 26px -8px rgba(0, 0, 0, 0.7), 0 0 18px -6px var(--cat-color);
+}
+
+.bento-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.bento-card-title {
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.bento-card-badge {
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  padding: 2px 7px;
+  border-radius: 5px;
+  color: var(--cat-color);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.bento-card-summary {
+  font-size: 0.79rem;
+  color: var(--text-muted);
+  line-height: 1.46;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.bento-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 0.71rem;
+  color: var(--text-dim);
+}
+
+/* CAPA DE VUELO Y TRANSFORMACIÓN FLIP ENTRE ÁRBOL Y BENTO */
+.morph-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 26;
+  overflow: hidden;
+}
+
+.morph-flying-card {
+  position: fixed;
+  top: 0;
+  left: 0;
+  background: rgba(15, 22, 36, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-left: 3.5px solid var(--cat-color, #38bdf8);
+  border-top: 2px solid var(--cat-color, #38bdf8);
+  border-radius: 11px;
+  padding: 10px 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 14px 34px -6px rgba(0, 0, 0, 0.7), 0 0 20px -6px var(--cat-color, #38bdf8);
+  transform-origin: 0 0;
+  will-change: transform, width, height, opacity;
+}
+
+.morph-flying-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.morph-flying-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.86rem;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.morph-flying-badge {
+  font-family: var(--font-mono);
+  font-size: 0.63rem;
+  color: var(--cat-color, #38bdf8);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 6px;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+
+.morph-flying-summary {
+  font-size: 0.77rem;
+  color: var(--text-muted);
+  line-height: 1.42;
+  margin-top: 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Clases de estado durante el morphing para ocultar los originales mientras sus clones vuelan */
+.morph-hidden-item {
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 /* VENTANA DEL ASISTENTE (ASESOR + PROYECTOS + STACK LAB ABAJO) */
@@ -1555,119 +1746,6 @@ body {
   color: var(--text-body);
   font-size: 0.74rem;
   outline: none;
-}
-
-/* VISTA BENTO */
-.bento-viewport {
-  position: absolute;
-  inset: 0;
-  overflow-y: auto;
-  padding: 24px 425px 40px 28px;
-  display: none;
-  user-select: text;
-}
-
-.bento-viewport.active {
-  display: block;
-}
-
-.bento-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 32px;
-}
-
-.bento-group-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-  border-bottom: 1px solid var(--border-subtle);
-  padding-bottom: 8px;
-}
-
-.bento-group-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
-}
-
-.bento-group-title {
-  font-family: var(--font-display);
-  font-size: 1.02rem;
-  font-weight: 700;
-}
-
-.bento-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
-}
-
-.bento-card {
-  position: relative;
-  height: 190px;
-  background: rgba(14, 20, 32, 0.88);
-  border: 1px solid var(--border-subtle);
-  border-top: 2.5px solid var(--cat-color);
-  border-radius: 12px;
-  padding: 14px 16px;
-  cursor: pointer;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.bento-card:hover {
-  transform: translateY(-3px);
-  border-color: var(--cat-color);
-  box-shadow: 0 10px 26px -8px rgba(0, 0, 0, 0.7), 0 0 18px -6px var(--cat-color);
-}
-
-.bento-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.bento-card-title {
-  font-family: var(--font-display);
-  font-size: 0.92rem;
-  font-weight: 700;
-}
-
-.bento-card-badge {
-  font-family: var(--font-mono);
-  font-size: 0.64rem;
-  padding: 2px 7px;
-  border-radius: 5px;
-  color: var(--cat-color);
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.bento-card-summary {
-  font-size: 0.79rem;
-  color: var(--text-muted);
-  line-height: 1.46;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.bento-card-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  font-size: 0.71rem;
-  color: var(--text-dim);
 }
 
 .btn-icon {

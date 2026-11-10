@@ -88,10 +88,11 @@ const KEY_SEEN_TOOLS = 'devtree_v8_seen_tools';
 const KEY_DAILY_AUTO_CACHE = 'devtree_v8_daily_auto_cache';
 const KEY_SUPA_CONFIG = 'devtree_v8_supa_config';
 
-// ESTADO GLOBAL
+// ESTADO GLOBAL INICIALIZADO CON LAS 48 TECNOLOGÍAS DESDE EL SEGUNDO 0
 const state = {
   view: 'tree',
   layout: 'matrix',
+  isMorphingView: false,
   expandedCategories: new Set(),
   stackFocusMode: false,
   matterActive: false,
@@ -103,8 +104,8 @@ const state = {
   isCardVisible: false,
   recommendedIds: [],
   recommendedReasons: {},
-  tools: [],
-  seenToolIds: new Set(),
+  tools: [...INITIAL_TOOLS],
+  seenToolIds: new Set(INITIAL_IDS),
   userProgress: {},
   currentProject: {
     id: null,
@@ -134,326 +135,39 @@ let hoverOpenTimer = null;
 let hoverCloseTimer = null;
 let resetBranchesTimer = null;
 
-document.addEventListener('DOMContentLoaded', async () => {
-  if (window.lucide) window.lucide.createIcons();
-  await loadAllData();
+function on(id, eventName, handler, options) {
+  const el = document.getElementById(id);
+  if (el) {
+    el.addEventListener(eventName, handler, options);
+  }
+}
+
+// ARRANQUE SÍNCRONO INMEDIATO
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    if (window.gsap && window.Flip) {
+      gsap.registerPlugin(Flip);
+    }
+    if (window.lucide) {
+      window.lucide.createIcons();
+    }
+  } catch (e) {}
+
+  loadLocalDataSync();
   populateModalCategories();
   bindEvents();
   centerCamera(true);
   startSmoothCameraLoop();
+  renderAll();
+
   initLenisSmoothScroll();
   initBackgroundParticles();
-  await checkOllamaStatus();
-  renderAll();
+  loadDailyAdditionsAsync();
+  checkOllamaStatus();
 });
 
-// ==================== VERIFICADOR DE CONEXIÓN REAL CON OLLAMA LOCAL ====================
-async function checkOllamaStatus() {
-  const led = document.getElementById('ollamaLed');
-  const label = document.getElementById('ollamaStatusLabel');
-  if (!led || !label) return false;
-
-  label.textContent = 'Comprobando localhost:11434...';
-
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000);
-    const res = await fetch('http://localhost:11434/api/tags', { signal: controller.signal });
-    clearTimeout(timeoutId);
-
-    if (!res.ok) throw new Error('Status not OK');
-    const data = await res.json();
-    const models = data.models || [];
-
-    const preferred =
-      models.find(m => m.name.toLowerCase().includes('qwen2.5-coder')) ||
-      models.find(m => m.name.toLowerCase().includes('qwen')) ||
-      models[0];
-
-    if (preferred && preferred.name) {
-      state.ollamaModelName = preferred.name;
-    }
-
-    state.ollamaOnline = true;
-    led.className = 'status-led online';
-    label.textContent = `Ollama Activo (${state.ollamaModelName})`;
-    return true;
-  } catch (err) {
-    state.ollamaOnline = false;
-    led.className = 'status-led offline';
-    label.textContent = 'Motor Local (Ollama desconectado)';
-    return false;
-  }
-}
-
-// ==================== LENIS SMOOTH SCROLL + VIEW TRANSITIONS ====================
-function initLenisSmoothScroll() {
-  if (!window.Lenis) return;
-  const bentoViewport = document.getElementById('bentoViewport');
-  state.lenisBento = new Lenis({
-    wrapper: bentoViewport,
-    content: document.getElementById('bentoContainer'),
-    lerp: 0.09,
-    smoothWheel: true
-  });
-
-  function raf(time) {
-    if (state.view === 'bento' && state.lenisBento) {
-      state.lenisBento.raf(time);
-    }
-    requestAnimationFrame(raf);
-  }
-  requestAnimationFrame(raf);
-}
-
-function runWithViewTransition(fn) {
-  if (document.startViewTransition) {
-    document.startViewTransition(() => fn());
-  } else {
-    fn();
-  }
-}
-
-// ==================== CONSTELACIÓN REACTIVA EN CANVAS 2D (SIEMPRE ACTIVA) ====================
-function initBackgroundParticles() {
-  const canvas = document.getElementById('particlesCanvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-
-  let width = (canvas.width = window.innerWidth);
-  let height = (canvas.height = window.innerHeight);
-  let mouseX = width / 2;
-  let mouseY = height / 2;
-
-  window.addEventListener('resize', () => {
-    width = canvas.width = window.innerWidth;
-    height = canvas.height = window.innerHeight;
-  });
-
-  window.addEventListener('mousemove', (e) => {
-    mouseX = e.clientX;
-    mouseY = e.clientY;
-  });
-
-  const particles = Array.from({ length: 42 }, () => ({
-    x: Math.random() * width,
-    y: Math.random() * height,
-    vx: (Math.random() - 0.5) * 0.35,
-    vy: (Math.random() - 0.5) * 0.35,
-    r: Math.random() * 1.6 + 0.8
-  }));
-
-  function animateParticles() {
-    ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = 'rgba(56, 189, 248, 0.55)';
-
-    for (let i = 0; i < particles.length; i++) {
-      const p = particles[i];
-      p.x += p.vx;
-      p.y += p.vy;
-
-      if (p.x < 0) p.x = width;
-      if (p.x > width) p.x = 0;
-      if (p.y < 0) p.y = height;
-      if (p.y > height) p.y = 0;
-
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      ctx.fill();
-
-      const dMouse = Math.hypot(p.x - mouseX, p.y - mouseY);
-      if (dMouse < 150) {
-        ctx.strokeStyle = `rgba(56, 189, 248, ${(1 - dMouse / 150) * 0.25})`;
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(p.x, p.y);
-        ctx.lineTo(mouseX, mouseY);
-        ctx.stroke();
-      }
-    }
-    requestAnimationFrame(animateParticles);
-  }
-  requestAnimationFrame(animateParticles);
-}
-
-// ==================== NÚCLEO 3D WEBGL CON THREE.JS ====================
-function mountThreeRootCore(containerEl) {
-  if (!window.THREE) return;
-
-  if (state.threeCore && state.threeCore.renderer) {
-    containerEl.prepend(state.threeCore.renderer.domElement);
-    return;
-  }
-
-  const width = 196;
-  const height = 196;
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-  camera.position.z = 3.1;
-
-  const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-  renderer.setSize(width, height);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.domElement.className = 'root-webgl-canvas';
-  containerEl.prepend(renderer.domElement);
-
-  const outerGeo = new THREE.IcosahedronGeometry(1.08, 1);
-  const outerMat = new THREE.MeshBasicMaterial({
-    color: 0x38bdf8,
-    wireframe: true,
-    transparent: true,
-    opacity: 0.35
-  });
-  const outerMesh = new THREE.Mesh(outerGeo, outerMat);
-  scene.add(outerMesh);
-
-  const innerGeo = new THREE.OctahedronGeometry(0.62, 0);
-  const innerMat = new THREE.MeshBasicMaterial({
-    color: 0xa855f7,
-    wireframe: true,
-    transparent: true,
-    opacity: 0.55
-  });
-  const innerMesh = new THREE.Mesh(innerGeo, innerMat);
-  scene.add(innerMesh);
-
-  state.threeCore = {
-    renderer,
-    outerMesh,
-    innerMesh,
-    outerMat,
-    innerMat,
-    speedMultiplier: 1
-  };
-
-  function animateThree() {
-    requestAnimationFrame(animateThree);
-    const mult = state.threeCore.speedMultiplier;
-    outerMesh.rotation.y += 0.005 * mult;
-    outerMesh.rotation.x += 0.003 * mult;
-    innerMesh.rotation.y -= 0.008 * mult;
-    innerMesh.rotation.z += 0.004 * mult;
-    renderer.render(scene, camera);
-  }
-  animateThree();
-}
-
-function setThreeCoreColor(hexColorStr) {
-  if (!state.threeCore || !window.THREE) return;
-  state.threeCore.outerMat.color.set(hexColorStr);
-}
-
-// ==================== SANDBOX DE FÍSICAS 2D CON MATTER.JS ====================
-function updateMatterPhysicsSandbox() {
-  const wrap = document.getElementById('matterSandboxWrap');
-  const canvas = document.getElementById('matterCanvas');
-  if (!state.matterActive || !window.Matter) {
-    wrap.style.display = 'none';
-    if (state.matterInstance) {
-      Matter.Render.stop(state.matterInstance.render);
-      Matter.Runner.stop(state.matterInstance.runner);
-      state.matterInstance = null;
-    }
-    return;
-  }
-
-  wrap.style.display = 'block';
-
-  if (state.matterInstance) {
-    Matter.Render.stop(state.matterInstance.render);
-    Matter.Runner.stop(state.matterInstance.runner);
-    state.matterInstance = null;
-  }
-
-  const { Engine, Render, Runner, Bodies, Composite, Mouse, MouseConstraint } = Matter;
-  const engine = Engine.create();
-  const width = 384;
-  const height = 135;
-
-  const render = Render.create({
-    canvas,
-    engine,
-    options: {
-      width,
-      height,
-      wireframes: false,
-      background: 'transparent',
-      pixelRatio: Math.min(window.devicePixelRatio, 2)
-    }
-  });
-
-  const ground = Bodies.rectangle(width / 2, height + 12, width, 24, { isStatic: true });
-  const leftWall = Bodies.rectangle(-12, height / 2, 24, height, { isStatic: true });
-  const rightWall = Bodies.rectangle(width + 12, height / 2, 24, height, { isStatic: true });
-  const ceiling = Bodies.rectangle(width / 2, -20, width, 24, { isStatic: true });
-
-  const pillBodies = [];
-  const ids = state.currentProject.stackIds.length > 0
-    ? state.currentProject.stackIds
-    : ['gsap', 'lenis', 'threejs', 'astro', 'tailwind'];
-
-  ids.forEach((id, i) => {
-    const tool = state.tools.find(t => t.id === id);
-    if (!tool) return;
-    const cat = CATEGORIES.find(c => c.id === tool.category);
-    const color = cat ? cat.color : '#38bdf8';
-    const label = tool.name.replace(' [NUEVO]', '').slice(0, 14);
-    const pillW = Math.max(68, label.length * 7 + 18);
-
-    const body = Bodies.rectangle(
-      50 + ((i * 65) % (width - 100)),
-      15 + (i * 12) % 45,
-      pillW,
-      24,
-      {
-        chamfer: { radius: 10 },
-        restitution: 0.65,
-        friction: 0.08,
-        render: {
-          fillStyle: 'rgba(18, 26, 42, 0.95)',
-          strokeStyle: color,
-          lineWidth: 2
-        },
-        plugin: { label, color }
-      }
-    );
-    pillBodies.push(body);
-  });
-
-  Composite.add(engine.world, [ground, leftWall, rightWall, ceiling, ...pillBodies]);
-
-  const mouse = Mouse.create(render.canvas);
-  const mouseConstraint = MouseConstraint.create(engine, {
-    mouse,
-    constraint: { stiffness: 0.2, render: { visible: false } }
-  });
-  Composite.add(engine.world, mouseConstraint);
-
-  Matter.Events.on(render, 'afterRender', () => {
-    const ctx = render.context;
-    ctx.font = '600 10px "JetBrains Mono", monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    pillBodies.forEach(b => {
-      ctx.save();
-      ctx.translate(b.position.x, b.position.y);
-      ctx.rotate(b.angle);
-      ctx.fillStyle = '#f8fafc';
-      ctx.fillText(b.plugin.label, 0, 1);
-      ctx.restore();
-    });
-  });
-
-  Render.run(render);
-  const runner = Runner.create();
-  Runner.run(runner, engine);
-
-  state.matterInstance = { engine, render, runner };
-}
-
-// ==================== CARGA DE DATOS + DESCUBRIMIENTO DIARIO ====================
-async function loadAllData() {
+// ==================== CARGA SÍNCRONA INMEDIATA DESDE LOCALSTORAGE ====================
+function loadLocalDataSync() {
   try {
     const prog = localStorage.getItem(KEY_PROGRESS);
     if (prog) state.userProgress = JSON.parse(prog);
@@ -469,13 +183,57 @@ async function loadAllData() {
     const supaRaw = localStorage.getItem(KEY_SUPA_CONFIG);
     if (supaRaw) {
       const supa = JSON.parse(supaRaw);
-      document.getElementById('supaUrlInput').value = supa.url || '';
-      document.getElementById('supaKeyInput').value = supa.key || '';
+      const urlIn = document.getElementById('supaUrlInput');
+      const keyIn = document.getElementById('supaKeyInput');
+      if (urlIn) urlIn.value = supa.url || '';
+      if (keyIn) keyIn.value = supa.key || '';
     }
 
     const custom = localStorage.getItem(KEY_CUSTOM_TOOLS);
     const customList = custom ? JSON.parse(custom) : [];
 
+    let cachedDaily = [];
+    try {
+      const cachedRaw = localStorage.getItem(KEY_DAILY_AUTO_CACHE);
+      if (cachedRaw) {
+        const parsedCache = JSON.parse(cachedRaw);
+        if (Array.isArray(parsedCache.items)) cachedDaily = parsedCache.items;
+      }
+    } catch (e) {}
+
+    mergeToolsIntoState(cachedDaily, customList);
+
+    const savedProjs = localStorage.getItem(KEY_SAVED_PROJECTS);
+    if (savedProjs) state.savedProjects = JSON.parse(savedProjs);
+
+    const activeProj = localStorage.getItem(KEY_ACTIVE_PROJECT);
+    if (activeProj) {
+      state.currentProject = JSON.parse(activeProj);
+      const pName = document.getElementById('projectNameInput');
+      const aInput = document.getElementById('advisorInput');
+      if (pName) pName.value = state.currentProject.name || '';
+      if (aInput) aInput.value = state.currentProject.description || '';
+    }
+  } catch (e) {
+    state.tools = [...INITIAL_TOOLS];
+  }
+}
+
+function mergeToolsIntoState(dailyList = [], customList = []) {
+  const merged = [...INITIAL_TOOLS, ...dailyList, ...customList];
+  const uniqueMap = new Map();
+  merged.forEach(item => {
+    if (!item || !item.id) return;
+    if (!INITIAL_IDS.has(item.id)) {
+      item.isNewAddition = true;
+    }
+    uniqueMap.set(item.id, item);
+  });
+  state.tools = Array.from(uniqueMap.values());
+}
+
+async function loadDailyAdditionsAsync() {
+  try {
     let dailyList = [];
     try {
       const res = await fetch('./daily_tools.json', { cache: 'no-store' });
@@ -488,29 +246,12 @@ async function loadAllData() {
     }
 
     const liveDailyTools = await fetchLiveDailyToolsFromGitHub(dailyList.length === 0);
+    const custom = localStorage.getItem(KEY_CUSTOM_TOOLS);
+    const customList = custom ? JSON.parse(custom) : [];
 
-    const merged = [...INITIAL_TOOLS, ...dailyList, ...liveDailyTools, ...customList];
-    const uniqueMap = new Map();
-    merged.forEach(item => {
-      if (!INITIAL_IDS.has(item.id)) {
-        item.isNewAddition = true;
-      }
-      uniqueMap.set(item.id, item);
-    });
-    state.tools = Array.from(uniqueMap.values());
-
-    const savedProjs = localStorage.getItem(KEY_SAVED_PROJECTS);
-    if (savedProjs) state.savedProjects = JSON.parse(savedProjs);
-
-    const activeProj = localStorage.getItem(KEY_ACTIVE_PROJECT);
-    if (activeProj) {
-      state.currentProject = JSON.parse(activeProj);
-      document.getElementById('projectNameInput').value = state.currentProject.name || '';
-      document.getElementById('advisorInput').value = state.currentProject.description || '';
-    }
-  } catch (e) {
-    state.tools = [...INITIAL_TOOLS];
-  }
+    mergeToolsIntoState([...dailyList, ...liveDailyTools], customList);
+    renderAll();
+  } catch (e) {}
 }
 
 async function fetchLiveDailyToolsFromGitHub(forceIfEmpty = false) {
@@ -532,7 +273,14 @@ async function fetchLiveDailyToolsFromGitHub(forceIfEmpty = false) {
     const query = encodeURIComponent(`(topic:webgl OR topic:threejs OR topic:astro OR topic:tailwindcss) pushed:>=${sinceDate} stars:>=120`);
     const url = `https://api.github.com/search/repositories?q=${query}&sort=stars&order=desc&per_page=8`;
 
-    const res = await fetch(url, { headers: { 'Accept': 'application/vnd.github+json' } });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+    const res = await fetch(url, {
+      headers: { 'Accept': 'application/vnd.github+json' },
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
     if (!res.ok) throw new Error('GitHub API limit');
     const data = await res.json();
     const items = data.items || [];
@@ -625,6 +373,487 @@ async function fetchLiveDailyToolsFromGitHub(forceIfEmpty = false) {
   return [];
 }
 
+// ==================== MOTOR MORPHING FLIP ENTRE ÁRBOL Y BENTO ====================
+function switchMainView(targetView) {
+  if (state.view === targetView || state.isMorphingView) return;
+
+  const btnTree = document.getElementById('btnViewTree');
+  const btnBento = document.getElementById('btnViewBento');
+  const treeVp = document.getElementById('treeViewport');
+  const bentoVp = document.getElementById('bentoViewport');
+  const morphLayer = document.getElementById('morphLayer');
+
+  if (!treeVp || !bentoVp || !morphLayer || !window.gsap) {
+    state.view = targetView;
+    btnTree?.classList.toggle('active', targetView === 'tree');
+    btnBento?.classList.toggle('active', targetView === 'bento');
+    treeVp?.classList.toggle('active', targetView === 'tree');
+    bentoVp?.classList.toggle('active', targetView === 'bento');
+    return;
+  }
+
+  state.isMorphingView = true;
+  if (!state.isCardPinned) {
+    closeTechCard();
+  }
+
+  btnTree?.classList.toggle('active', targetView === 'tree');
+  btnBento?.classList.toggle('active', targetView === 'bento');
+
+  // Asegurar que ambos lienzos tienen sus elementos renderizados antes de medir coordenadas
+  renderTree();
+  renderBento();
+
+  const visibleTools = state.tools.filter(t => isToolVisibleByFilter(t));
+  morphLayer.innerHTML = '';
+
+  const morphItems = [];
+
+  visibleTools.forEach((tool, idx) => {
+    const cat = CATEGORIES.find(c => c.id === tool.category);
+    const catColor = cat ? cat.color : '#38bdf8';
+
+    const treeNodeEl = document.querySelector(`.node-tool[data-tool-id="${tool.id}"]`);
+    const treeCatEl = document.querySelector(`.node-category[data-cat-id="${tool.category}"]`);
+    const bentoCardEl = document.querySelector(`.bento-card[data-tool-id="${tool.id}"]`);
+
+    const treeAnchorEl = treeNodeEl || treeCatEl;
+    if (!treeAnchorEl || !bentoCardEl) return;
+
+    const treeRect = treeAnchorEl.getBoundingClientRect();
+    const bentoRect = bentoCardEl.getBoundingClientRect();
+
+    const fromRect = targetView === 'bento' ? treeRect : bentoRect;
+    const toRect = targetView === 'bento' ? bentoRect : treeRect;
+
+    // Filtrar tarjetas que estén totalmente fuera de la pantalla en ambos extremos para máxima fluidez
+    const vh = window.innerHeight;
+    const vw = window.innerWidth;
+    const fromInScreen = fromRect.bottom > -250 && fromRect.top < vh + 250 && fromRect.right > -250 && fromRect.left < vw + 250;
+    const toInScreen = toRect.bottom > -250 && toRect.top < vh + 250 && toRect.right > -250 && toRect.left < vw + 250;
+    if (!fromInScreen && !toInScreen) return;
+
+    const flyer = document.createElement('div');
+    flyer.className = 'morph-flying-card';
+    flyer.style.setProperty('--cat-color', catColor);
+    flyer.style.width = `${Math.max(40, fromRect.width)}px`;
+    flyer.style.height = `${Math.max(28, fromRect.height)}px`;
+    flyer.style.transform = `translate3d(${fromRect.left}px, ${fromRect.top}px, 0)`;
+
+    const displayName = tool.name.replace(' [NUEVO]', '');
+    flyer.innerHTML = `
+      <div class="morph-flying-top">
+        <span class="morph-flying-title">${displayName}</span>
+        <span class="morph-flying-badge">${tool.badge}</span>
+      </div>
+      <p class="morph-flying-summary">${tool.summary}</p>
+    `;
+
+    const summaryEl = flyer.querySelector('.morph-flying-summary');
+    if (summaryEl) {
+      summaryEl.style.opacity = targetView === 'bento' ? '0' : '1';
+    }
+
+    morphLayer.appendChild(flyer);
+
+    morphItems.push({
+      flyer,
+      summaryEl,
+      fromRect,
+      toRect,
+      treeNodeEl,
+      bentoCardEl,
+      isCollapsedOrigin: !treeNodeEl,
+      index: idx
+    });
+  });
+
+  // Ocultar temporalmente las tarjetas originales mientras sus clones viajan entre vistas
+  morphItems.forEach(item => {
+    if (item.treeNodeEl) item.treeNodeEl.classList.add('morph-hidden-item');
+    if (item.bentoCardEl) item.bentoCardEl.classList.add('morph-hidden-item');
+  });
+
+  // Cambiar las clases activas de los contenedores para que las curvas del árbol o las cabeceras Bento hagan un fundido natural
+  state.view = targetView;
+  treeVp.classList.toggle('active', targetView === 'tree');
+  bentoVp.classList.toggle('active', targetView === 'bento');
+
+  const tl = gsap.timeline({
+    onComplete: () => {
+      morphItems.forEach(item => {
+        if (item.treeNodeEl) item.treeNodeEl.classList.remove('morph-hidden-item');
+        if (item.bentoCardEl) item.bentoCardEl.classList.remove('morph-hidden-item');
+      });
+      morphLayer.innerHTML = '';
+      state.isMorphingView = false;
+
+      if (targetView === 'bento' && state.lenisBento && typeof state.lenisBento.resize === 'function') {
+        state.lenisBento.resize();
+      }
+    }
+  });
+
+  // Animar el viaje y cambio de tamaño de cada recuadro hasta su posición final
+  morphItems.forEach((item, i) => {
+    const staggerDelay = Math.min(0.22, i * 0.006);
+
+    tl.fromTo(
+      item.flyer,
+      {
+        x: item.fromRect.left,
+        y: item.fromRect.top,
+        width: item.fromRect.width,
+        height: item.fromRect.height,
+        opacity: targetView === 'bento' && item.isCollapsedOrigin ? 0.35 : 1
+      },
+      {
+        x: item.toRect.left,
+        y: item.toRect.top,
+        width: item.toRect.width,
+        height: item.toRect.height,
+        opacity: targetView === 'tree' && item.isCollapsedOrigin ? 0.15 : 1,
+        duration: 0.62,
+        ease: 'expo.inOut'
+      },
+      staggerDelay
+    );
+
+    if (item.summaryEl) {
+      tl.to(
+        item.summaryEl,
+        {
+          opacity: targetView === 'bento' ? 1 : 0,
+          duration: 0.36,
+          ease: 'power2.inOut'
+        },
+        staggerDelay + (targetView === 'bento' ? 0.2 : 0)
+      );
+    }
+  });
+}
+
+// ==================== VERIFICADOR DE CONEXIÓN REAL CON OLLAMA LOCAL ====================
+async function checkOllamaStatus() {
+  const led = document.getElementById('ollamaLed');
+  const label = document.getElementById('ollamaStatusLabel');
+  if (!led || !label) return false;
+
+  label.textContent = 'Comprobando localhost:11434...';
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1800);
+    const res = await fetch('http://localhost:11434/api/tags', { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) throw new Error('Status not OK');
+    const data = await res.json();
+    const models = data.models || [];
+
+    const preferred =
+      models.find(m => m.name.toLowerCase().includes('qwen2.5-coder')) ||
+      models.find(m => m.name.toLowerCase().includes('qwen')) ||
+      models[0];
+
+    if (preferred && preferred.name) {
+      state.ollamaModelName = preferred.name;
+    }
+
+    state.ollamaOnline = true;
+    led.className = 'status-led online';
+    label.textContent = `Ollama Activo (${state.ollamaModelName})`;
+    return true;
+  } catch (err) {
+    state.ollamaOnline = false;
+    led.className = 'status-led offline';
+    label.textContent = 'Motor Local (Ollama desconectado)';
+    return false;
+  }
+}
+
+// ==================== LENIS SMOOTH SCROLL + VIEW TRANSITIONS ====================
+function initLenisSmoothScroll() {
+  try {
+    if (!window.Lenis) return;
+    const bentoViewport = document.getElementById('bentoViewport');
+    const bentoContainer = document.getElementById('bentoContainer');
+    if (!bentoViewport || !bentoContainer) return;
+
+    state.lenisBento = new Lenis({
+      wrapper: bentoViewport,
+      content: bentoContainer,
+      lerp: 0.09,
+      smoothWheel: true
+    });
+
+    function raf(time) {
+      if (state.view === 'bento' && state.lenisBento) {
+        state.lenisBento.raf(time);
+      }
+      requestAnimationFrame(raf);
+    }
+    requestAnimationFrame(raf);
+  } catch (e) {}
+}
+
+function runWithViewTransition(fn) {
+  if (document.startViewTransition) {
+    try {
+      document.startViewTransition(() => fn());
+    } catch (e) {
+      fn();
+    }
+  } else {
+    fn();
+  }
+}
+
+// ==================== CONSTELACIÓN REACTIVA EN CANVAS 2D ====================
+function initBackgroundParticles() {
+  const canvas = document.getElementById('particlesCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  let width = (canvas.width = window.innerWidth);
+  let height = (canvas.height = window.innerHeight);
+  let mouseX = width / 2;
+  let mouseY = height / 2;
+
+  window.addEventListener('resize', () => {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+  });
+
+  const particles = Array.from({ length: 42 }, () => ({
+    x: Math.random() * width,
+    y: Math.random() * height,
+    vx: (Math.random() - 0.5) * 0.35,
+    vy: (Math.random() - 0.5) * 0.35,
+    r: Math.random() * 1.6 + 0.8
+  }));
+
+  function animateParticles() {
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.55)';
+
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+
+      if (p.x < 0) p.x = width;
+      if (p.x > width) p.x = 0;
+      if (p.y < 0) p.y = height;
+      if (p.y > height) p.y = 0;
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+
+      const dMouse = Math.hypot(p.x - mouseX, p.y - mouseY);
+      if (dMouse < 150) {
+        ctx.strokeStyle = `rgba(56, 189, 248, ${(1 - dMouse / 150) * 0.25})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(mouseX, mouseY);
+        ctx.stroke();
+      }
+    }
+    requestAnimationFrame(animateParticles);
+  }
+  requestAnimationFrame(animateParticles);
+}
+
+// ==================== NÚCLEO 3D WEBGL CON THREE.JS ====================
+function mountThreeRootCore(containerEl) {
+  try {
+    if (!window.THREE || !containerEl) return;
+
+    if (state.threeCore && state.threeCore.renderer) {
+      containerEl.prepend(state.threeCore.renderer.domElement);
+      return;
+    }
+
+    const width = 196;
+    const height = 196;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+    camera.position.z = 3.1;
+
+    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.domElement.className = 'root-webgl-canvas';
+    containerEl.prepend(renderer.domElement);
+
+    const outerGeo = new THREE.IcosahedronGeometry(1.08, 1);
+    const outerMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.35
+    });
+    const outerMesh = new THREE.Mesh(outerGeo, outerMat);
+    scene.add(outerMesh);
+
+    const innerGeo = new THREE.OctahedronGeometry(0.62, 0);
+    const innerMat = new THREE.MeshBasicMaterial({
+      color: 0xa855f7,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.55
+    });
+    const innerMesh = new THREE.Mesh(innerGeo, innerMat);
+    scene.add(innerMesh);
+
+    state.threeCore = {
+      renderer,
+      outerMesh,
+      innerMesh,
+      outerMat,
+      innerMat,
+      speedMultiplier: 1
+    };
+
+    function animateThree() {
+      requestAnimationFrame(animateThree);
+      const mult = state.threeCore.speedMultiplier;
+      outerMesh.rotation.y += 0.005 * mult;
+      outerMesh.rotation.x += 0.003 * mult;
+      innerMesh.rotation.y -= 0.008 * mult;
+      innerMesh.rotation.z += 0.004 * mult;
+      renderer.render(scene, camera);
+    }
+    animateThree();
+  } catch (err) {}
+}
+
+function setThreeCoreColor(hexColorStr) {
+  try {
+    if (!state.threeCore || !window.THREE) return;
+    state.threeCore.outerMat.color.set(hexColorStr);
+  } catch (e) {}
+}
+
+// ==================== SANDBOX DE FÍSICAS 2D CON MATTER.JS ====================
+function updateMatterPhysicsSandbox() {
+  const wrap = document.getElementById('matterSandboxWrap');
+  const canvas = document.getElementById('matterCanvas');
+  if (!wrap || !canvas) return;
+
+  if (!state.matterActive || !window.Matter) {
+    wrap.style.display = 'none';
+    if (state.matterInstance) {
+      Matter.Render.stop(state.matterInstance.render);
+      Matter.Runner.stop(state.matterInstance.runner);
+      state.matterInstance = null;
+    }
+    return;
+  }
+
+  wrap.style.display = 'block';
+
+  if (state.matterInstance) {
+    Matter.Render.stop(state.matterInstance.render);
+    Matter.Runner.stop(state.matterInstance.runner);
+    state.matterInstance = null;
+  }
+
+  const { Engine, Render, Runner, Bodies, Composite, Mouse, MouseConstraint } = Matter;
+  const engine = Engine.create();
+  const width = 384;
+  const height = 135;
+
+  const render = Render.create({
+    canvas,
+    engine,
+    options: {
+      width,
+      height,
+      wireframes: false,
+      background: 'transparent',
+      pixelRatio: Math.min(window.devicePixelRatio || 1, 2)
+    }
+  });
+
+  const ground = Bodies.rectangle(width / 2, height + 12, width, 24, { isStatic: true });
+  const leftWall = Bodies.rectangle(-12, height / 2, 24, height, { isStatic: true });
+  const rightWall = Bodies.rectangle(width + 12, height / 2, 24, height, { isStatic: true });
+  const ceiling = Bodies.rectangle(width / 2, -20, width, 24, { isStatic: true });
+
+  const pillBodies = [];
+  const ids = state.currentProject.stackIds.length > 0
+    ? state.currentProject.stackIds
+    : ['gsap', 'lenis', 'threejs', 'astro', 'tailwind'];
+
+  ids.forEach((id, i) => {
+    const tool = state.tools.find(t => t.id === id);
+    if (!tool) return;
+    const cat = CATEGORIES.find(c => c.id === tool.category);
+    const color = cat ? cat.color : '#38bdf8';
+    const label = tool.name.replace(' [NUEVO]', '').slice(0, 14);
+    const pillW = Math.max(68, label.length * 7 + 18);
+
+    const body = Bodies.rectangle(
+      50 + ((i * 65) % (width - 100)),
+      15 + (i * 12) % 45,
+      pillW,
+      24,
+      {
+        chamfer: { radius: 10 },
+        restitution: 0.65,
+        friction: 0.08,
+        render: {
+          fillStyle: 'rgba(18, 26, 42, 0.95)',
+          strokeStyle: color,
+          lineWidth: 2
+        },
+        plugin: { label, color }
+      }
+    );
+    pillBodies.push(body);
+  });
+
+  Composite.add(engine.world, [ground, leftWall, rightWall, ceiling, ...pillBodies]);
+
+  const mouse = Mouse.create(render.canvas);
+  const mouseConstraint = MouseConstraint.create(engine, {
+    mouse,
+    constraint: { stiffness: 0.2, render: { visible: false } }
+  });
+  Composite.add(engine.world, mouseConstraint);
+
+  Matter.Events.on(render, 'afterRender', () => {
+    const ctx = render.context;
+    ctx.font = '600 10px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    pillBodies.forEach(b => {
+      ctx.save();
+      ctx.translate(b.position.x, b.position.y);
+      ctx.rotate(b.angle);
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillText(b.plugin.label, 0, 1);
+      ctx.restore();
+    });
+  });
+
+  Render.run(render);
+  const runner = Runner.create();
+  Runner.run(runner, engine);
+
+  state.matterInstance = { engine, render, runner };
+}
+
 function persistSeenTools() {
   localStorage.setItem(KEY_SEEN_TOOLS, JSON.stringify(Array.from(state.seenToolIds)));
 }
@@ -685,11 +914,13 @@ function updateCategoryAndTopNewBadges() {
 
   const topPill = document.getElementById('unreadCounterPill');
   const topText = document.getElementById('unreadCountText');
-  if (totalUnread > 0) {
-    topPill.style.display = 'inline-flex';
-    topText.textContent = `${totalUnread} ${totalUnread === 1 ? 'nueva sin leer' : 'nuevas sin leer'}`;
-  } else {
-    topPill.style.display = 'none';
+  if (topPill && topText) {
+    if (totalUnread > 0) {
+      topPill.style.display = 'inline-flex';
+      topText.textContent = `${totalUnread} ${totalUnread === 1 ? 'nueva sin leer' : 'nuevas sin leer'}`;
+    } else {
+      topPill.style.display = 'none';
+    }
   }
 }
 
@@ -700,12 +931,14 @@ function persistActiveProject() {
 
 function persistSavedProjects() {
   localStorage.setItem(KEY_SAVED_PROJECTS, JSON.stringify(state.savedProjects));
-  document.getElementById('projectsCountBadge').textContent = state.savedProjects.length;
+  const badge = document.getElementById('projectsCountBadge');
+  if (badge) badge.textContent = state.savedProjects.length;
 }
 
 function updateHeaderProjectLabel() {
   const label = document.getElementById('activeProjectHeader');
-  const name = state.currentProject.name.trim();
+  if (!label) return;
+  const name = (state.currentProject.name || '').trim();
   const count = state.currentProject.stackIds.length;
   label.textContent = name
     ? `Proyecto activo: ${name} (${count} en Stack)`
@@ -728,7 +961,7 @@ function isToolVisibleByFilter(tool) {
   return true;
 }
 
-// LIMPIAR TODOS LOS FILTROS DE LA PÁGINA (Botón superior)
+// LIMPIAR TODOS LOS FILTROS DE LA PÁGINA
 function clearAllGlobalFilters() {
   state.search = '';
   state.stackFocusMode = false;
@@ -763,9 +996,10 @@ function updateClearFilterButtonState() {
   btn.classList.toggle('active', hasActiveFilter);
 }
 
-// MOTOR DE CÁMARA FLUIDA Y NÍTIDA (CORREGIDO: CERO VIBRACIÓN AL DETENERSE)
+// MOTOR DE CÁMARA FLUIDA Y NÍTIDA
 function startSmoothCameraLoop() {
   const stage = document.getElementById('treeStage');
+  if (!stage) return;
   let isSettled = true;
 
   function step() {
@@ -784,7 +1018,6 @@ function startSmoothCameraLoop() {
 
       stage.style.transform = `translate(${cam.currentX.toFixed(1)}px, ${cam.currentY.toFixed(1)}px) scale(${cam.currentScale.toFixed(4)})`;
     } else if (!isSettled) {
-      // Igualamos target y current al mismo entero redondeado para que dx, dy y ds sean exactamente 0 y nunca vibre
       isSettled = true;
       cam.targetX = Math.round(cam.targetX);
       cam.targetY = Math.round(cam.targetY);
@@ -805,8 +1038,8 @@ function startSmoothCameraLoop() {
 
 function centerCamera(instant = false) {
   const viewport = document.getElementById('treeViewport');
-  const vw = viewport.clientWidth || window.innerWidth;
-  const vh = viewport.clientHeight || (window.innerHeight - 60);
+  const vw = (viewport && viewport.clientWidth) ? viewport.clientWidth : window.innerWidth;
+  const vh = (viewport && viewport.clientHeight) ? viewport.clientHeight : (window.innerHeight - 60);
 
   const targetScale = vw < 1200 ? 0.62 : 0.76;
   const anchorY = state.layout === 'matrix' ? 780 : 1300;
@@ -820,7 +1053,9 @@ function centerCamera(instant = false) {
     state.camera.currentX = state.camera.targetX;
     state.camera.currentY = state.camera.targetY;
     const stage = document.getElementById('treeStage');
-    stage.style.transform = `translate(${state.camera.currentX}px, ${state.camera.currentY}px) scale(${state.camera.currentScale})`;
+    if (stage) {
+      stage.style.transform = `translate(${state.camera.currentX}px, ${state.camera.currentY}px) scale(${state.camera.currentScale})`;
+    }
   }
 }
 
@@ -832,10 +1067,11 @@ function applyZoomAtPoint(newScale, mouseX, mouseY) {
   state.camera.targetScale = clamped;
 }
 
-// MOTOR GSAP ESTABILIZADO (CON DEBOUNCE ANTI-REBOTE ENTRE RAMAS)
+// MOTOR GSAP ESTABILIZADO
 function focusBranchWithGSAP(activeCatId, specificToolId = null) {
   clearTimeout(resetBranchesTimer);
   const svg = document.getElementById('treeSvg');
+  if (!svg) return;
   const activeCoords = state.categoryCoords.get(activeCatId);
   if (!activeCoords) return;
 
@@ -871,8 +1107,8 @@ function focusBranchWithGSAP(activeCatId, specificToolId = null) {
         }
       });
     } else {
-      let dx = catCoords.x - activeCoords.x;
-      let dy = catCoords.y - activeCoords.y;
+      const dx = catCoords.x - activeCoords.x;
+      const dy = catCoords.y - activeCoords.y;
       const dist = Math.hypot(dx, dy) || 1;
 
       const pushStrength = Math.max(10, Math.min(20, 8000 / dist));
@@ -902,6 +1138,7 @@ function resetBranchesWithGSAP(immediate = false) {
   clearTimeout(resetBranchesTimer);
   const executeReset = () => {
     const svg = document.getElementById('treeSvg');
+    if (!svg) return;
     const allNodeGroups = document.querySelectorAll('.branch-node-group');
     const allSvgGroups = svg.querySelectorAll('.branch-svg-group');
 
@@ -932,6 +1169,7 @@ function resetBranchesWithGSAP(immediate = false) {
 
 // TARJETA DERECHA DE VISTA RÁPIDA
 function scheduleShowTechCard(toolId) {
+  if (state.isMorphingView) return;
   clearTimeout(hoverCloseTimer);
   if (state.isCardPinned && state.activeToolId !== toolId) return;
 
@@ -957,6 +1195,7 @@ function openTechCard(toolId, pinIt = false) {
   markToolAsSeen(toolId);
 
   const card = document.getElementById('techCard');
+  if (!card) return;
   const isSwitchingContent = state.isCardVisible && state.activeToolId !== toolId;
   const isAlreadyShowingSame = state.isCardVisible && state.activeToolId === toolId;
 
@@ -1007,6 +1246,7 @@ function populateTechCardDOM(tool) {
   const color = cat ? cat.color : '#38bdf8';
   const prog = getToolProgress(tool.id);
   const card = document.getElementById('techCard');
+  if (!card) return;
 
   card.style.setProperty('--tc-color', color);
   document.getElementById('tcCategory').textContent = cat ? cat.name : 'TECNOLOGÍA';
@@ -1017,20 +1257,24 @@ function populateTechCardDOM(tool) {
 
   const aiReason = state.recommendedReasons[tool.id];
   const useCaseEl = document.getElementById('tcUseCase');
-  if (aiReason) {
-    useCaseEl.innerHTML = `<strong style="color:#fbbf24;">★ Por qué en tu proyecto:</strong> ${aiReason}<br/><span style="color:#94a3b8; font-size:0.77rem;">Uso general: ${tool.useCase}</span>`;
-  } else {
-    useCaseEl.textContent = tool.useCase;
+  if (useCaseEl) {
+    if (aiReason) {
+      useCaseEl.innerHTML = `<strong style="color:#fbbf24;">★ Por qué en tu proyecto:</strong> ${aiReason}<br/><span style="color:#94a3b8; font-size:0.77rem;">Uso general: ${tool.useCase}</span>`;
+    } else {
+      useCaseEl.textContent = tool.useCase;
+    }
   }
 
   document.getElementById('tcSnippet').textContent = tool.snippet || `// Ver documentación en ${tool.url}`;
   document.getElementById('tcNotes').value = prog.notes || '';
 
   const chipsContainer = document.getElementById('tcSynergyChips');
-  const rawSynergies = (tool.synergy || 'HTML + CSS + JS').split(/[+,/]/).map(s => s.trim()).filter(Boolean);
-  chipsContainer.innerHTML = rawSynergies
-    .map(s => `<span class="tc-syn-chip">${s}</span>`)
-    .join('');
+  if (chipsContainer) {
+    const rawSynergies = (tool.synergy || 'HTML + CSS + JS').split(/[+,/]/).map(s => s.trim()).filter(Boolean);
+    chipsContainer.innerHTML = rawSynergies
+      .map(s => `<span class="tc-syn-chip">${s}</span>`)
+      .join('');
+  }
 
   document.querySelectorAll('#tcStatusGroup .tc-status-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.status === prog.status);
@@ -1041,6 +1285,7 @@ function populateTechCardDOM(tool) {
 
 function updateCardStackPill(toolId) {
   const pill = document.getElementById('btnToggleStackFromCard');
+  if (!pill) return;
   const inStack = state.currentProject.stackIds.includes(toolId);
   pill.classList.toggle('in-stack', inStack);
   pill.textContent = inStack ? '✓ En Stack' : '+ Stack';
@@ -1048,6 +1293,7 @@ function updateCardStackPill(toolId) {
 
 function closeTechCard() {
   const card = document.getElementById('techCard');
+  if (!card) return;
   state.isCardPinned = false;
   state.isCardVisible = false;
   state.activeToolId = null;
@@ -1086,6 +1332,8 @@ function renderAll() {
 function renderTree() {
   const svg = document.getElementById('treeSvg');
   const nodesLayer = document.getElementById('treeNodes');
+  if (!svg || !nodesLayer) return;
+
   svg.innerHTML = '';
   nodesLayer.innerHTML = '';
   state.categoryCoords.clear();
@@ -1332,7 +1580,7 @@ function renderTree() {
         e.stopPropagation();
         if (state.activeToolId === tool.id && state.isCardPinned) {
           state.isCardPinned = false;
-          document.getElementById('techCard').classList.remove('pinned');
+          document.getElementById('techCard')?.classList.remove('pinned');
         } else {
           openTechCard(tool.id, true);
         }
@@ -1340,7 +1588,7 @@ function renderTree() {
 
       branchNodeGroup.appendChild(toolEl);
 
-      if (window.gsap) {
+      if (window.gsap && !state.isMorphingView) {
         gsap.fromTo(
           toolEl,
           { opacity: 0, scale: 0.88 },
@@ -1379,9 +1627,10 @@ function drawConnection(svgGroup, x1, y1, x2, y2, color, isDimmed, edgeKey, isVe
   }
 }
 
-// RENDERIZADO CUADRÍCULA BENTO
+// RENDERIZADO CUADRÍCULA BENTO (Con atributo data-tool-id para medición FLIP)
 function renderBento() {
   const container = document.getElementById('bentoContainer');
+  if (!container) return;
   container.innerHTML = '';
 
   CATEGORIES.forEach(cat => {
@@ -1406,6 +1655,7 @@ function renderBento() {
 
       const card = document.createElement('article');
       card.className = 'bento-card';
+      card.dataset.toolId = tool.id;
       card.style.setProperty('--cat-color', cat.color);
       card.innerHTML = `
         <div class="bento-card-header">
@@ -1443,9 +1693,9 @@ function renderBento() {
   });
 }
 
-// ==================== ASESOR DE ARQUITECTURA: OLLAMA PROFUNDO (SIN PALABRAS CLAVE) ====================
+// ==================== ASESOR DE ARQUITECTURA: OLLAMA PROFUNDO ====================
 async function runProjectAdvisor(rawText) {
-  const cleanPrompt = rawText.trim();
+  const cleanPrompt = (rawText || '').trim();
   state.currentProject.description = cleanPrompt;
   persistActiveProject();
 
@@ -1457,9 +1707,11 @@ async function runProjectAdvisor(rawText) {
   if (!cleanPrompt) {
     state.recommendedIds = [];
     state.recommendedReasons = {};
-    btnPassAll.style.display = 'none';
-    reasoningBox.style.display = 'none';
-    container.innerHTML = `<p class="empty-hint">Describe tu proyecto arriba y pulsa <strong>Analizar y Recomendar</strong>.</p>`;
+    if (btnPassAll) btnPassAll.style.display = 'none';
+    if (reasoningBox) reasoningBox.style.display = 'none';
+    if (container) {
+      container.innerHTML = `<p class="empty-hint">Describe tu proyecto arriba y pulsa <strong>Analizar y Recomendar</strong>.</p>`;
+    }
     renderAll();
     return;
   }
@@ -1467,12 +1719,18 @@ async function runProjectAdvisor(rawText) {
   const isOnline = await checkOllamaStatus();
 
   if (isOnline) {
-    runBtn.disabled = true;
-    runBtn.textContent = 'Razonando con IA...';
-    btnPassAll.style.display = 'none';
-    reasoningBox.style.display = 'block';
-    reasoningBox.innerHTML = `🟢 <strong>Analizando con ${state.ollamaModelName}:</strong> Leyendo las descripciones completas de las ${state.tools.length} tecnologías del catálogo para diseñar tu stack a medida...`;
-    container.innerHTML = `<p class="empty-hint">⏳ Evaluando compatibilidad de lenguajes, frameworks, bases de datos y librerías para tu proyecto...</p>`;
+    if (runBtn) {
+      runBtn.disabled = true;
+      runBtn.textContent = 'Razonando con IA...';
+    }
+    if (btnPassAll) btnPassAll.style.display = 'none';
+    if (reasoningBox) {
+      reasoningBox.style.display = 'block';
+      reasoningBox.innerHTML = `🟢 <strong>Analizando con ${state.ollamaModelName}:</strong> Leyendo las descripciones completas de las ${state.tools.length} tecnologías del catálogo para diseñar tu stack a medida...`;
+    }
+    if (container) {
+      container.innerHTML = `<p class="empty-hint">⏳ Evaluando compatibilidad de lenguajes, frameworks, bases de datos y librerías para tu proyecto...</p>`;
+    }
 
     try {
       const fullCatalogContext = state.tools.map(t => {
@@ -1549,15 +1807,19 @@ Responde ÚNICAMENTE con un objeto JSON válido con esta estructura exacta:
       state.expandedCategories.clear();
       verifiedTools.forEach(t => state.expandedCategories.add(t.category));
 
-      reasoningBox.innerHTML = `🟢 <strong>Arquitectura diseñada por ${state.ollamaModelName}:</strong><br/>${parsed.arquitectura || 'Stack seleccionado analizando las descripciones completas de tu catálogo.'}`;
-      btnPassAll.style.display = 'inline-flex';
+      if (reasoningBox) {
+        reasoningBox.innerHTML = `🟢 <strong>Arquitectura diseñada por ${state.ollamaModelName}:</strong><br/>${parsed.arquitectura || 'Stack seleccionado analizando las descripciones completas de tu catálogo.'}`;
+      }
+      if (btnPassAll) btnPassAll.style.display = 'inline-flex';
       renderAdvisorList(verifiedTools, cleanPrompt);
       renderAll();
     } catch (err) {
       runDeterministicFallbackAdvisor(cleanPrompt, `⚠️ Aviso de Ollama (${err.message}). Se muestra selección técnica de respaldo:`);
     } finally {
-      runBtn.disabled = false;
-      runBtn.textContent = 'Analizar y Recomendar';
+      if (runBtn) {
+        runBtn.disabled = false;
+        runBtn.textContent = 'Analizar y Recomendar';
+      }
     }
   } else {
     runDeterministicFallbackAdvisor(
@@ -1650,9 +1912,11 @@ function runDeterministicFallbackAdvisor(rawText, bannerHtml) {
   state.expandedCategories.clear();
   topTools.forEach(t => state.expandedCategories.add(t.category));
 
-  reasoningBox.style.display = 'block';
-  reasoningBox.innerHTML = bannerHtml;
-  btnPassAll.style.display = 'inline-flex';
+  if (reasoningBox) {
+    reasoningBox.style.display = 'block';
+    reasoningBox.innerHTML = bannerHtml;
+  }
+  if (btnPassAll) btnPassAll.style.display = 'inline-flex';
 
   renderAdvisorList(topTools, rawText);
   renderAll();
@@ -1660,6 +1924,7 @@ function runDeterministicFallbackAdvisor(rawText, bannerHtml) {
 
 function renderAdvisorList(topTools, rawText) {
   const container = document.getElementById('advisorResultsContainer');
+  if (!container) return;
   container.innerHTML = '';
 
   topTools.forEach(tool => {
@@ -1704,7 +1969,7 @@ function renderAdvisorList(topTools, rawText) {
 function generateStarterKitBlueprint() {
   const ids = state.currentProject.stackIds;
   const selected = ids.map(id => state.tools.find(t => t.id === id)).filter(Boolean);
-  const projName = state.currentProject.name.trim() || 'mi-proyecto-pro';
+  const projName = (state.currentProject.name || '').trim() || 'mi-proyecto-pro';
   const slug = projName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
   const npmPackages = [];
@@ -1761,9 +2026,13 @@ ${slug}/
 
 // ==================== SINCRONIZACIÓN SQL CON SUPABASE ====================
 async function syncWithSupabase(direction = 'push') {
-  const url = document.getElementById('supaUrlInput').value.trim().replace(/\/$/, '');
-  const key = document.getElementById('supaKeyInput').value.trim();
+  const urlIn = document.getElementById('supaUrlInput');
+  const keyIn = document.getElementById('supaKeyInput');
   const statusEl = document.getElementById('supaStatusText');
+  if (!urlIn || !keyIn || !statusEl) return;
+
+  const url = urlIn.value.trim().replace(/\/$/, '');
+  const key = keyIn.value.trim();
 
   if (!url || !key) {
     statusEl.textContent = '⚠️ Introduce tu Supabase URL y Anon Key primero.';
@@ -1835,12 +2104,15 @@ function renderStackDock() {
   const countBadge = document.getElementById('stackCountBadge');
   const focusBtn = document.getElementById('btnToggleStackFocus');
   const matterBtn = document.getElementById('btnToggleMatter');
+  if (!chipsContainer) return;
 
   const ids = state.currentProject.stackIds;
-  countBadge.textContent = `${ids.length} en el proyecto`;
-  focusBtn.classList.toggle('active', state.stackFocusMode);
-  focusBtn.textContent = state.stackFocusMode ? '🎯 Viendo mi Stack' : '🎯 Solo mi Stack';
-  matterBtn.classList.toggle('active', state.matterActive);
+  if (countBadge) countBadge.textContent = `${ids.length} en el proyecto`;
+  if (focusBtn) {
+    focusBtn.classList.toggle('active', state.stackFocusMode);
+    focusBtn.textContent = state.stackFocusMode ? '🎯 Viendo mi Stack' : '🎯 Solo mi Stack';
+  }
+  if (matterBtn) matterBtn.classList.toggle('active', state.matterActive);
 
   if (ids.length === 0) {
     chipsContainer.innerHTML = `<span class="stack-dock-empty">Usa el Asesor o pulsa "+S" en cualquier nodo para armar el Stack de tu proyecto.</span>`;
@@ -1864,14 +2136,14 @@ function saveCurrentProjectToLibrary() {
   const nameInput = document.getElementById('projectNameInput');
   const descInput = document.getElementById('advisorInput');
 
-  let name = nameInput.value.trim();
+  let name = nameInput ? nameInput.value.trim() : '';
   if (!name) {
     name = `Proyecto #${state.savedProjects.length + 1}`;
-    nameInput.value = name;
+    if (nameInput) nameInput.value = name;
   }
 
   state.currentProject.name = name;
-  state.currentProject.description = descInput.value.trim();
+  state.currentProject.description = descInput ? descInput.value.trim() : '';
 
   if (!state.currentProject.id) {
     state.currentProject.id = 'proj_' + Date.now();
@@ -1909,8 +2181,10 @@ function loadSavedProject(projId) {
     stackIds: [...found.stackIds]
   };
 
-  document.getElementById('projectNameInput').value = found.name;
-  document.getElementById('advisorInput').value = found.description;
+  const nameIn = document.getElementById('projectNameInput');
+  const advIn = document.getElementById('advisorInput');
+  if (nameIn) nameIn.value = found.name;
+  if (advIn) advIn.value = found.description;
 
   state.expandedCategories.clear();
   state.currentProject.stackIds.forEach(id => {
@@ -1934,11 +2208,17 @@ function startNewBlankProject() {
   state.stackFocusMode = false;
   state.expandedCategories.clear();
 
-  document.getElementById('projectNameInput').value = '';
-  document.getElementById('advisorInput').value = '';
-  document.getElementById('advisorResultsContainer').innerHTML = `<p class="empty-hint">Describe tu nuevo proyecto arriba.</p>`;
-  document.getElementById('btnPassAllToStack').style.display = 'none';
-  document.getElementById('aiReasoningBox').style.display = 'none';
+  const nameIn = document.getElementById('projectNameInput');
+  const advIn = document.getElementById('advisorInput');
+  const resBox = document.getElementById('advisorResultsContainer');
+  const passBtn = document.getElementById('btnPassAllToStack');
+  const aiBox = document.getElementById('aiReasoningBox');
+
+  if (nameIn) nameIn.value = '';
+  if (advIn) advIn.value = '';
+  if (resBox) resBox.innerHTML = `<p class="empty-hint">Describe tu nuevo proyecto arriba.</p>`;
+  if (passBtn) passBtn.style.display = 'none';
+  if (aiBox) aiBox.style.display = 'none';
 
   persistActiveProject();
   renderAll();
@@ -1957,7 +2237,9 @@ function deleteSavedProject(projId) {
 
 function renderSavedProjectsList() {
   const listEl = document.getElementById('savedProjectsList');
-  document.getElementById('projectsCountBadge').textContent = state.savedProjects.length;
+  const badge = document.getElementById('projectsCountBadge');
+  if (badge) badge.textContent = state.savedProjects.length;
+  if (!listEl) return;
 
   if (state.savedProjects.length === 0) {
     listEl.innerHTML = `<p class="empty-hint">Aún no has guardado ningún proyecto. Arma un Stack con el Asesor y pulsa Guardar.</p>`;
@@ -2002,47 +2284,30 @@ function renderSavedProjectsList() {
 
 function switchStudioTab(tabName) {
   document.querySelectorAll('.sp-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tabName));
-  document.getElementById('paneAdvisor').classList.toggle('active', tabName === 'advisor');
-  document.getElementById('paneProjects').classList.toggle('active', tabName === 'projects');
+  const pAdv = document.getElementById('paneAdvisor');
+  const pProj = document.getElementById('paneProjects');
+  if (pAdv) pAdv.classList.toggle('active', tabName === 'advisor');
+  if (pProj) pProj.classList.toggle('active', tabName === 'projects');
 }
 
 function populateModalCategories() {
   const select = document.getElementById('toolCategory');
+  if (!select) return;
   select.innerHTML = CATEGORIES.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
 }
 
-// ENLACE DE EVENTOS
+// ENLACE DE EVENTOS BLINDADO
 function bindEvents() {
-  document.getElementById('btnViewTree').addEventListener('click', () => {
-    runWithViewTransition(() => {
-      state.view = 'tree';
-      document.getElementById('btnViewTree').classList.add('active');
-      document.getElementById('btnViewBento').classList.remove('active');
-      document.getElementById('treeViewport').classList.add('active');
-      document.getElementById('bentoViewport').classList.remove('active');
-    });
-  });
-
-  document.getElementById('btnViewBento').addEventListener('click', () => {
-    runWithViewTransition(() => {
-      state.view = 'bento';
-      document.getElementById('btnViewBento').classList.add('active');
-      document.getElementById('btnViewTree').classList.remove('active');
-      document.getElementById('bentoViewport').classList.add('active');
-      document.getElementById('treeViewport').classList.remove('active');
-    });
-  });
+  // Conmutador principal con vuelo espacial FLIP: Modo Árbol <-> Modo Bento
+  on('btnViewTree', 'click', () => switchMainView('tree'));
+  on('btnViewBento', 'click', () => switchMainView('bento'));
 
   // Botón Limpiar Filtro en la barra superior
-  document.getElementById('btnClearGlobalFilter').addEventListener('click', () => {
-    clearAllGlobalFilters();
-  });
+  on('btnClearGlobalFilter', 'click', () => clearAllGlobalFilters());
 
-  document.getElementById('btnCheckOllama').addEventListener('click', () => {
-    checkOllamaStatus();
-  });
+  on('btnCheckOllama', 'click', () => checkOllamaStatus());
 
-  document.getElementById('unreadCounterPill').addEventListener('click', () => {
+  on('unreadCounterPill', 'click', () => {
     state.tools.forEach(t => {
       if (isToolUnreadNew(t)) state.expandedCategories.add(t.category);
     });
@@ -2052,14 +2317,16 @@ function bindEvents() {
   const studioPanel = document.getElementById('studioPanel');
   const launcherBtn = document.getElementById('btnToggleStudio');
 
-  launcherBtn.addEventListener('click', () => {
+  on('btnToggleStudio', 'click', () => {
+    if (!studioPanel || !launcherBtn) return;
     const isOpen = studioPanel.classList.toggle('open');
     launcherBtn.classList.toggle('active', isOpen);
     studioPanel.setAttribute('aria-hidden', String(!isOpen));
     if (isOpen) checkOllamaStatus();
   });
 
-  document.getElementById('btnCloseStudio').addEventListener('click', () => {
+  on('btnCloseStudio', 'click', () => {
+    if (!studioPanel || !launcherBtn) return;
     studioPanel.classList.remove('open');
     launcherBtn.classList.remove('active');
     studioPanel.setAttribute('aria-hidden', 'true');
@@ -2070,23 +2337,19 @@ function bindEvents() {
   });
 
   const techCard = document.getElementById('techCard');
-  techCard.addEventListener('mouseenter', () => {
-    clearTimeout(hoverCloseTimer);
-  });
-  techCard.addEventListener('mouseleave', () => {
-    scheduleHideTechCard();
-  });
+  if (techCard) {
+    techCard.addEventListener('mouseenter', () => clearTimeout(hoverCloseTimer));
+    techCard.addEventListener('mouseleave', () => scheduleHideTechCard());
+  }
 
-  document.getElementById('btnCloseTechCard').addEventListener('click', () => {
-    closeTechCard();
-  });
+  on('btnCloseTechCard', 'click', () => closeTechCard());
 
-  document.getElementById('tcPinBadge').addEventListener('click', () => {
+  on('tcPinBadge', 'click', () => {
     state.isCardPinned = false;
-    techCard.classList.remove('pinned');
+    if (techCard) techCard.classList.remove('pinned');
   });
 
-  document.getElementById('btnToggleStackFromCard').addEventListener('click', () => {
+  on('btnToggleStackFromCard', 'click', () => {
     if (state.activeToolId) toggleToolInStack(state.activeToolId);
   });
 
@@ -2103,99 +2366,107 @@ function bindEvents() {
     });
   });
 
-  document.getElementById('tcNotes').addEventListener('input', (e) => {
+  on('tcNotes', 'input', (e) => {
     if (!state.activeToolId) return;
     const cur = getToolProgress(state.activeToolId);
     state.userProgress[state.activeToolId] = { ...cur, notes: e.target.value };
     localStorage.setItem(KEY_PROGRESS, JSON.stringify(state.userProgress));
   });
 
-  document.getElementById('btnCopyCode').addEventListener('click', () => {
-    navigator.clipboard.writeText(document.getElementById('tcSnippet').textContent);
+  on('btnCopyCode', 'click', () => {
+    const snippetEl = document.getElementById('tcSnippet');
+    if (snippetEl) navigator.clipboard.writeText(snippetEl.textContent);
     const btn = document.getElementById('btnCopyCode');
-    btn.textContent = '¡Copiado!';
-    setTimeout(() => { btn.textContent = 'Copiar'; }, 1400);
+    if (btn) {
+      btn.textContent = '¡Copiado!';
+      setTimeout(() => { btn.textContent = 'Copiar'; }, 1400);
+    }
   });
 
   const setLayout = (mode) => {
     runWithViewTransition(() => {
       state.layout = mode;
-      document.getElementById('btnLayoutMatrix').classList.toggle('active', mode === 'matrix');
-      document.getElementById('btnLayoutWing').classList.toggle('active', mode === 'wing');
-      document.getElementById('btnLayoutOrbital').classList.toggle('active', mode === 'orbital');
+      document.getElementById('btnLayoutMatrix')?.classList.toggle('active', mode === 'matrix');
+      document.getElementById('btnLayoutWing')?.classList.toggle('active', mode === 'wing');
+      document.getElementById('btnLayoutOrbital')?.classList.toggle('active', mode === 'orbital');
       renderTree();
       centerCamera(false);
     });
   };
 
-  document.getElementById('btnLayoutMatrix').addEventListener('click', () => setLayout('matrix'));
-  document.getElementById('btnLayoutWing').addEventListener('click', () => setLayout('wing'));
-  document.getElementById('btnLayoutOrbital').addEventListener('click', () => setLayout('orbital'));
+  on('btnLayoutMatrix', 'click', () => setLayout('matrix'));
+  on('btnLayoutWing', 'click', () => setLayout('wing'));
+  on('btnLayoutOrbital', 'click', () => setLayout('orbital'));
 
-  document.getElementById('searchInput').addEventListener('input', (e) => {
+  on('searchInput', 'input', (e) => {
     state.search = e.target.value;
     renderAll();
   });
 
   const treeViewport = document.getElementById('treeViewport');
+  if (treeViewport) {
+    treeViewport.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.canvas-hud') || e.target.closest('.node')) return;
+      state.camera.isDragging = true;
+      state.camera.dragStartX = e.clientX - state.camera.targetX;
+      state.camera.dragStartY = e.clientY - state.camera.targetY;
+      treeViewport.classList.add('dragging');
+    });
 
-  treeViewport.addEventListener('mousedown', (e) => {
-    if (e.target.closest('.canvas-hud') || e.target.closest('.node')) return;
-    state.camera.isDragging = true;
-    state.camera.dragStartX = e.clientX - state.camera.targetX;
-    state.camera.dragStartY = e.clientY - state.camera.targetY;
-    treeViewport.classList.add('dragging');
-  });
+    window.addEventListener('mousemove', (e) => {
+      if (!state.camera.isDragging) return;
+      state.camera.targetX = e.clientX - state.camera.dragStartX;
+      state.camera.targetY = e.clientY - state.camera.dragStartY;
+    });
 
-  window.addEventListener('mousemove', (e) => {
-    if (!state.camera.isDragging) return;
-    state.camera.targetX = e.clientX - state.camera.dragStartX;
-    state.camera.targetY = e.clientY - state.camera.dragStartY;
-  });
+    window.addEventListener('mouseup', () => {
+      state.camera.isDragging = false;
+      treeViewport.classList.remove('dragging');
+    });
 
-  window.addEventListener('mouseup', () => {
-    state.camera.isDragging = false;
-    treeViewport.classList.remove('dragging');
-  });
+    treeViewport.addEventListener('dblclick', (e) => {
+      if (e.target.closest('.canvas-hud') || e.target.closest('.node')) return;
+      centerCamera(false);
+    });
 
-  treeViewport.addEventListener('dblclick', (e) => {
-    if (e.target.closest('.canvas-hud') || e.target.closest('.node')) return;
-    centerCamera(false);
-  });
-
-  treeViewport.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    const rect = treeViewport.getBoundingClientRect();
-    const factor = e.deltaY < 0 ? 1.12 : 0.89;
-    applyZoomAtPoint(state.camera.targetScale * factor, e.clientX - rect.left, e.clientY - rect.top);
-  }, { passive: false });
+    treeViewport.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const rect = treeViewport.getBoundingClientRect();
+      const factor = e.deltaY < 0 ? 1.12 : 0.89;
+      applyZoomAtPoint(state.camera.targetScale * factor, e.clientX - rect.left, e.clientY - rect.top);
+    }, { passive: false });
+  }
 
   // Eventos del Asesor y Proyectos
-  document.getElementById('projectNameInput').addEventListener('input', (e) => {
+  on('projectNameInput', 'input', (e) => {
     state.currentProject.name = e.target.value;
     persistActiveProject();
     renderTree();
   });
 
-  document.getElementById('btnRunAdvisor').addEventListener('click', () => {
-    runProjectAdvisor(document.getElementById('advisorInput').value);
+  on('btnRunAdvisor', 'click', () => {
+    const advIn = document.getElementById('advisorInput');
+    runProjectAdvisor(advIn ? advIn.value : '');
   });
 
-  document.getElementById('btnClearAdvisor').addEventListener('click', () => {
-    document.getElementById('advisorInput').value = '';
+  on('btnClearAdvisor', 'click', () => {
+    const advIn = document.getElementById('advisorInput');
+    if (advIn) advIn.value = '';
     runProjectAdvisor('');
   });
 
   document.querySelectorAll('.preset-chip').forEach(chip => {
     chip.addEventListener('click', () => {
-      document.getElementById('projectNameInput').value = chip.dataset.name;
-      document.getElementById('advisorInput').value = chip.dataset.prompt;
+      const nameIn = document.getElementById('projectNameInput');
+      const advIn = document.getElementById('advisorInput');
+      if (nameIn) nameIn.value = chip.dataset.name;
+      if (advIn) advIn.value = chip.dataset.prompt;
       state.currentProject.name = chip.dataset.name;
       runProjectAdvisor(chip.dataset.prompt);
     });
   });
 
-  document.getElementById('btnPassAllToStack').addEventListener('click', () => {
+  on('btnPassAllToStack', 'click', () => {
     state.recommendedIds.forEach(id => {
       if (!state.currentProject.stackIds.includes(id)) {
         state.currentProject.stackIds.push(id);
@@ -2205,15 +2476,15 @@ function bindEvents() {
     renderAll();
   });
 
-  document.getElementById('btnSaveProjectQuick').addEventListener('click', saveCurrentProjectToLibrary);
-  document.getElementById('btnSaveCurrentProjectFull').addEventListener('click', saveCurrentProjectToLibrary);
-  document.getElementById('btnSaveStackAsProject').addEventListener('click', saveCurrentProjectToLibrary);
-  document.getElementById('btnNewBlankProject').addEventListener('click', startNewBlankProject);
+  on('btnSaveProjectQuick', 'click', saveCurrentProjectToLibrary);
+  on('btnSaveCurrentProjectFull', 'click', saveCurrentProjectToLibrary);
+  on('btnSaveStackAsProject', 'click', saveCurrentProjectToLibrary);
+  on('btnNewBlankProject', 'click', startNewBlankProject);
 
   // Sincronización SQL con Supabase
-  document.getElementById('btnSyncSupaPush').addEventListener('click', () => syncWithSupabase('push'));
-  document.getElementById('btnSyncSupaPull').addEventListener('click', () => syncWithSupabase('pull'));
-  document.getElementById('btnCopySqlSchema').addEventListener('click', (e) => {
+  on('btnSyncSupaPush', 'click', () => syncWithSupabase('push'));
+  on('btnSyncSupaPull', 'click', () => syncWithSupabase('pull'));
+  on('btnCopySqlSchema', 'click', (e) => {
     const sql = `CREATE TABLE IF NOT EXISTS devtree_backups (\n  id TEXT PRIMARY KEY,\n  saved_projects JSONB,\n  updated_at TIMESTAMPTZ DEFAULT NOW()\n);`;
     navigator.clipboard.writeText(sql);
     const btn = e.currentTarget;
@@ -2222,13 +2493,13 @@ function bindEvents() {
   });
 
   // Stack Lab + Matter.js + Starter Kit
-  document.getElementById('btnToggleMatter').addEventListener('click', () => {
+  on('btnToggleMatter', 'click', () => {
     state.matterActive = !state.matterActive;
     renderStackDock();
     updateMatterPhysicsSandbox();
   });
 
-  document.getElementById('btnToggleStackFocus').addEventListener('click', () => {
+  on('btnToggleStackFocus', 'click', () => {
     if (state.currentProject.stackIds.length === 0 && !state.stackFocusMode) {
       alert('Añade primero al menos una tecnología a tu Stack Lab (o usa el Asesor) para activar el Modo Enfoque.');
       return;
@@ -2239,17 +2510,19 @@ function bindEvents() {
     });
   });
 
-  document.getElementById('btnCopyStackCmd').addEventListener('click', () => {
+  on('btnCopyStackCmd', 'click', () => {
     const tools = state.currentProject.stackIds.map(id => state.tools.find(t => t.id === id)).filter(Boolean);
     const title = state.currentProject.name || 'Mi Proyecto';
     const text = `# ${title}\n` + tools.map(t => `- ${t.name} (${t.badge}): ${t.url}`).join('\n');
     navigator.clipboard.writeText(text);
     const btn = document.getElementById('btnCopyStackCmd');
-    btn.textContent = '¡Copiado!';
-    setTimeout(() => { btn.textContent = 'Copiar'; }, 1400);
+    if (btn) {
+      btn.textContent = '¡Copiado!';
+      setTimeout(() => { btn.textContent = 'Copiar'; }, 1400);
+    }
   });
 
-  document.getElementById('btnClearStack').addEventListener('click', () => {
+  on('btnClearStack', 'click', () => {
     state.currentProject.stackIds = [];
     state.stackFocusMode = false;
     persistActiveProject();
@@ -2257,18 +2530,22 @@ function bindEvents() {
   });
 
   const skModal = document.getElementById('starterKitModal');
-  document.getElementById('btnOpenStarterKit').addEventListener('click', () => {
-    document.getElementById('starterKitOutput').textContent = generateStarterKitBlueprint();
-    skModal.classList.add('open');
+  on('btnOpenStarterKit', 'click', () => {
+    const out = document.getElementById('starterKitOutput');
+    if (out) out.textContent = generateStarterKitBlueprint();
+    if (skModal) skModal.classList.add('open');
   });
-  document.getElementById('btnCloseStarterKit').addEventListener('click', () => skModal.classList.remove('open'));
-  document.getElementById('btnCopyStarterKit').addEventListener('click', (e) => {
-    navigator.clipboard.writeText(document.getElementById('starterKitOutput').textContent);
-    e.currentTarget.textContent = '¡Copiado!';
-    setTimeout(() => { e.currentTarget.textContent = 'Copiar Blueprint'; }, 1400);
+  on('btnCloseStarterKit', 'click', () => skModal?.classList.remove('open'));
+  on('btnCopyStarterKit', 'click', (e) => {
+    const out = document.getElementById('starterKitOutput');
+    if (out) navigator.clipboard.writeText(out.textContent);
+    const btn = e.currentTarget;
+    btn.textContent = '¡Copiado!';
+    setTimeout(() => { btn.textContent = 'Copiar Blueprint'; }, 1400);
   });
-  document.getElementById('btnDownloadStarterKit').addEventListener('click', () => {
-    const content = document.getElementById('starterKitOutput').textContent;
+  on('btnDownloadStarterKit', 'click', () => {
+    const out = document.getElementById('starterKitOutput');
+    const content = out ? out.textContent : '';
     const blob = new Blob([content], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -2279,11 +2556,11 @@ function bindEvents() {
   });
 
   const modal = document.getElementById('modalBackdrop');
-  document.getElementById('btnOpenModal').addEventListener('click', () => modal.classList.add('open'));
-  document.getElementById('btnCloseModal').addEventListener('click', () => modal.classList.remove('open'));
-  document.getElementById('btnCancelModal').addEventListener('click', () => modal.classList.remove('open'));
+  on('btnOpenModal', 'click', () => modal?.classList.add('open'));
+  on('btnCloseModal', 'click', () => modal?.classList.remove('open'));
+  on('btnCancelModal', 'click', () => modal?.classList.remove('open'));
 
-  document.getElementById('addToolForm').addEventListener('submit', (e) => {
+  on('addToolForm', 'submit', (e) => {
     e.preventDefault();
     const newTool = {
       id: 'custom_' + Date.now(),
@@ -2307,11 +2584,11 @@ function bindEvents() {
 
     state.expandedCategories.add(newTool.category);
     e.target.reset();
-    modal.classList.remove('open');
+    if (modal) modal.classList.remove('open');
     renderAll();
   });
 
-  document.getElementById('btnExportJson').addEventListener('click', () => {
+  on('btnExportJson', 'click', () => {
     const data = {
       exportedAt: new Date().toISOString(),
       savedProjects: state.savedProjects,
