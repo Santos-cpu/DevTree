@@ -10,7 +10,7 @@ const CATEGORIES = [
   { id: 'inspiration', name: 'Inspiración & Deploy', color: '#6366f1', description: 'Galerías premiadas, demos con código y hosting gratuito.' }
 ];
 
-// CATÁLOGO DE 48 TECNOLOGÍAS (6 por rama)
+// CATÁLOGO BASE DE 48 TECNOLOGÍAS (6 por rama)
 const INITIAL_TOOLS = [
   // 1. Lenguajes
   { id: 'lang-js', name: 'JavaScript (ES2026)', category: 'languages', badge: 'Frontend & Web Core', url: 'https://developer.mozilla.org/es/docs/Web/JavaScript', summary: 'El lenguaje nativo del navegador. Controla el DOM, animaciones GSAP, lienzos 3D WebGL y lógica full-stack.', useCase: 'Imprescindible para webs interactivas, PWAs y animaciones a medida.', synergy: 'HTML + CSS + GSAP + Three.js', keywords: 'javascript js web frontend dom animaciones interactivo navegador pwa', snippet: `const cargar = async (url) => (await fetch(url)).json();` },
@@ -85,16 +85,15 @@ const KEY_ACTIVE_PROJECT = 'devtree_v5_active_project';
 
 // ESTADO GLOBAL DE LA APLICACIÓN
 const state = {
-  view: 'tree',                 // 'tree' | 'bento'
-  layout: 'matrix',             // Por defecto 'matrix' con esfera central
-  expandedCategories: new Set(),// Vacío al inicio = solo se ven la esfera central y las categorías
-  stackFocusMode: false,        // Si es true, solo muestra las tecnologías del Stack Lab
+  view: 'tree',
+  layout: 'matrix',
+  expandedCategories: new Set(),
+  stackFocusMode: false,
   search: '',
   selectedToolId: null,
   recommendedIds: [],
   tools: [],
   userProgress: {},
-  // Proyecto activo en curso
   currentProject: {
     id: null,
     name: '',
@@ -102,7 +101,6 @@ const state = {
     stackIds: []
   },
   savedProjects: [],
-  // Motor de cámara LERP a 60 FPS
   camera: {
     currentX: 0,
     currentY: 0,
@@ -133,7 +131,7 @@ async function loadAllData() {
     const custom = localStorage.getItem(KEY_CUSTOM_TOOLS);
     const customList = custom ? JSON.parse(custom) : [];
 
-    // Cargar las novedades descubiertas por el bot diario
+    // Cargar las novedades descubiertas por el bot diario en GitHub Actions
     let dailyList = [];
     try {
       const res = await fetch('./daily_tools.json', { cache: 'no-store' });
@@ -141,11 +139,9 @@ async function loadAllData() {
         dailyList = await res.json();
       }
     } catch (fetchErr) {
-      // Si se abre sin servidor o aún está vacío, continúa con normalidad
       dailyList = [];
     }
 
-    // Unir catálogo base + descubrimientos diarios + herramientas manuales sin duplicar IDs
     const merged = [...INITIAL_TOOLS, ...dailyList, ...customList];
     const uniqueMap = new Map();
     merged.forEach(item => uniqueMap.set(item.id, item));
@@ -188,7 +184,6 @@ function getToolProgress(toolId) {
   return state.userProgress[toolId] || { status: 'none', notes: '' };
 }
 
-// Comprueba si una herramienta pasa los filtros activos (Búsqueda o Modo Enfoque Stack Lab)
 function isToolVisibleByFilter(tool) {
   if (state.stackFocusMode) {
     return state.currentProject.stackIds.includes(tool.id);
@@ -201,7 +196,7 @@ function isToolVisibleByFilter(tool) {
   return true;
 }
 
-// MOTOR DE CÁMARA FLUIDA LERP A 60 FPS (Punto 6)
+// MOTOR DE CÁMARA FLUIDA LERP A 60 FPS
 function startSmoothCameraLoop() {
   const stage = document.getElementById('treeStage');
   const readout = document.getElementById('zoomReadout');
@@ -234,7 +229,6 @@ function centerCamera(instant = false) {
   const vw = viewport.clientWidth || window.innerWidth;
   const vh = viewport.clientHeight || (window.innerHeight - 106);
 
-  // Si la ventana flotante derecha está abierta, desplazamos ligeramente el centro hacia la izquierda para que quede simétrico en el área libre
   const isWindowOpen = document.getElementById('floatingWindow').classList.contains('open');
   const usableWidth = isWindowOpen && vw > 1000 ? vw - 410 : vw;
 
@@ -262,6 +256,23 @@ function applyZoomAtPoint(newScale, mouseX, mouseY) {
   state.camera.targetScale = clamped;
 }
 
+// FUNCIONES AUXILIARES PARA ILUMINAR CURVAS DE BÉZIER AL PASAR EL CURSOR
+function highlightEdgesBySelect(svg, selector) {
+  svg.querySelectorAll(selector).forEach(path => {
+    if (path.classList.contains('edge-base')) {
+      path.classList.add('edge-highlight-base');
+    } else if (path.classList.contains('edge-pulse')) {
+      path.classList.add('edge-highlight-pulse');
+    }
+  });
+}
+
+function clearAllEdgeHighlights(svg) {
+  svg.querySelectorAll('.edge-highlight-base, .edge-highlight-pulse').forEach(path => {
+    path.classList.remove('edge-highlight-base', 'edge-highlight-pulse');
+  });
+}
+
 // RENDERIZADO GENERAL
 function renderAll() {
   updateHeaderProjectLabel();
@@ -271,7 +282,7 @@ function renderAll() {
   renderSavedProjectsList();
 }
 
-// RENDERIZADO DEL ÁRBOL (Con esfera central en todos los modos y categorías plegadas por defecto)
+// RENDERIZADO DEL ÁRBOL CON CURVAS DE BÉZIER ANIMADAS E INTERACTIVAS
 function renderTree() {
   const svg = document.getElementById('treeSvg');
   const nodesLayer = document.getElementById('treeNodes');
@@ -279,10 +290,9 @@ function renderTree() {
   nodesLayer.innerHTML = '';
 
   const centerX = 1800;
-  // En modo Matriz la esfera central se sitúa arriba en el centro (Y = 420); en los demás en el centro (Y = 1300)
   const rootY = state.layout === 'matrix' ? 420 : 1300;
 
-  // 1. ESFERA CENTRAL (Presente también en Matriz)
+  // 1. ESFERA CENTRAL INTERACTIVA
   const rootEl = document.createElement('div');
   rootEl.className = 'node node-root';
   rootEl.style.left = `${centerX}px`;
@@ -293,6 +303,15 @@ function renderTree() {
     <div class="node-root-title">${state.currentProject.name ? state.currentProject.name.toUpperCase() : 'STACK PRO'}</div>
     <span class="node-root-sub">${allExpanded ? 'Clic para plegar ramas' : 'Clic para desplegar todas'}</span>
   `;
+
+  // Al pasar el ratón por la esfera central, se iluminan las 8 ramas principales
+  rootEl.addEventListener('mouseenter', () => {
+    highlightEdgesBySelect(svg, '[data-edge^="cat-"]');
+  });
+  rootEl.addEventListener('mouseleave', () => {
+    clearAllEdgeHighlights(svg);
+  });
+
   rootEl.addEventListener('click', (e) => {
     e.stopPropagation();
     if (state.expandedCategories.size === CATEGORIES.length) {
@@ -309,7 +328,6 @@ function renderTree() {
     const allCatTools = state.tools.filter(t => t.category === cat.id);
     const visibleCatTools = allCatTools.filter(t => isToolVisibleByFilter(t));
 
-    // Una categoría muestra sus hijos si el usuario la ha desplegado, o si hay búsqueda activa / Modo Enfoque Stack Lab
     const isExpanded =
       state.expandedCategories.has(cat.id) ||
       state.stackFocusMode ||
@@ -322,12 +340,10 @@ function renderTree() {
     const isLeftSide = catIdx < 4;
 
     if (state.layout === 'matrix') {
-      // 8 columnas simétricas debajo de la esfera central
       const colOffset = (catIdx - 3.5) * 242;
       catX = centerX + colOffset;
       catY = 740;
     } else if (state.layout === 'wing') {
-      // 4 ramas a la izquierda y 4 a la derecha
       const sideSign = isLeftSide ? -1 : 1;
       const rowIdx = catIdx % 4;
       const rowOffsets = [-690, -230, 230, 690];
@@ -340,11 +356,12 @@ function renderTree() {
       catY = rootY + Math.sin(angle) * radiusCat;
     }
 
-    // Curva desde la Esfera Central hasta cada Categoría
-    drawConnection(svg, centerX, rootY, catX, catY, cat.color, !hasVisibleItems, `cat-${cat.id}`, state.layout === 'matrix');
+    // Curva de Bézier animada desde la Esfera Central hasta la Categoría
+    drawConnection(svg, centerX, rootY, catX, catY, cat.color, !hasVisibleItems, `cat-${cat.id}`, cat.id, state.layout === 'matrix');
 
     const catEl = document.createElement('div');
     catEl.className = `node node-category ${!hasVisibleItems ? 'dimmed' : ''}`;
+    catEl.dataset.catId = cat.id;
     catEl.style.left = `${catX}px`;
     catEl.style.top = `${catY}px`;
     catEl.style.setProperty('--cat-color', cat.color);
@@ -355,6 +372,14 @@ function renderTree() {
       </div>
       <div class="node-category-count">${visibleCatTools.length} tecnologías · ${isExpanded ? 'Ocultar' : 'Ver'}</div>
     `;
+
+    // Al pasar el cursor por una Categoría, se ilumina su curva principal y todas las curvas hacia sus hijos
+    catEl.addEventListener('mouseenter', () => {
+      highlightEdgesBySelect(svg, `[data-cat-group="${cat.id}"]`);
+    });
+    catEl.addEventListener('mouseleave', () => {
+      clearAllEdgeHighlights(svg);
+    });
 
     catEl.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -368,10 +393,9 @@ function renderTree() {
 
     nodesLayer.appendChild(catEl);
 
-    // Si la categoría está plegada, no dibujamos las herramientas hijas (Punto 3)
     if (!isExpanded) return;
 
-    // 3. NODOS DE HERRAMIENTAS HIJAS
+    // 3. NODOS DE HERRAMIENTAS HIJAS CON ENTRADA ESCALONADA Y CURVAS INTERACTIVAS
     visibleCatTools.forEach((tool, toolIdx) => {
       let toolX = catX;
       let toolY = catY;
@@ -400,7 +424,7 @@ function renderTree() {
       const inStack = state.currentProject.stackIds.includes(tool.id);
       const edgeColor = inStack ? '#10b981' : (isRecommended ? '#fbbf24' : cat.color);
 
-      drawConnection(svg, catX, catY, toolX, toolY, edgeColor, false, `tool-${tool.id}`, state.layout === 'matrix');
+      drawConnection(svg, catX, catY, toolX, toolY, edgeColor, false, `tool-${tool.id}`, cat.id, state.layout === 'matrix');
 
       const prog = getToolProgress(tool.id);
       const toolEl = document.createElement('div');
@@ -414,6 +438,7 @@ function renderTree() {
       toolEl.style.left = `${toolX}px`;
       toolEl.style.top = `${toolY}px`;
       toolEl.style.setProperty('--cat-color', cat.color);
+      toolEl.style.setProperty('--stagger-delay', `${toolIdx * 35}ms`);
 
       const dotHtml = prog.status !== 'none' ? `<span class="status-dot ${prog.status}"></span>` : '';
       const recHtml = isRecommended ? `<span class="rec-star">★</span>` : '';
@@ -432,11 +457,14 @@ function renderTree() {
         <div class="node-tool-badge">${tool.badge}</div>
       `;
 
+      // Al pasar el cursor por la herramienta, iluminamos toda su ruta (Esfera -> Categoría -> Herramienta)
       toolEl.addEventListener('mouseenter', () => {
-        svg.querySelectorAll(`[data-edge="tool-${tool.id}"], [data-edge="cat-${cat.id}"]`).forEach(p => p.classList.add('edge-highlight'));
+        highlightEdgesBySelect(svg, `[data-edge="tool-${tool.id}"], [data-edge="cat-${cat.id}"]`);
+        catEl.classList.add('cat-active-hover');
       });
       toolEl.addEventListener('mouseleave', () => {
-        svg.querySelectorAll('.edge-highlight').forEach(p => p.classList.remove('edge-highlight'));
+        clearAllEdgeHighlights(svg);
+        catEl.classList.remove('cat-active-hover');
       });
 
       toolEl.querySelector('.node-stack-btn').addEventListener('click', (e) => {
@@ -454,7 +482,8 @@ function renderTree() {
   });
 }
 
-function drawConnection(svg, x1, y1, x2, y2, color, isDimmed, edgeKey, isVerticalFlow) {
+// Dibuja la curva de Bézier base + el pulso luminoso animado
+function drawConnection(svg, x1, y1, x2, y2, color, isDimmed, edgeKey, catGroup, isVerticalFlow) {
   const dx = (x2 - x1) * 0.5;
   const dy = (y2 - y1) * 0.5;
 
@@ -462,16 +491,28 @@ function drawConnection(svg, x1, y1, x2, y2, color, isDimmed, edgeKey, isVertica
     ? `M ${x1} ${y1} C ${x1} ${y1 + dy}, ${x2} ${y2 - dy}, ${x2} ${y2}`
     : `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
 
-  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  path.setAttribute('d', d);
-  path.setAttribute('stroke', color);
-  path.setAttribute('class', 'edge-base');
-  path.setAttribute('data-edge', edgeKey);
-  if (isDimmed) path.style.opacity = '0.06';
-  svg.appendChild(path);
+  const basePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  basePath.setAttribute('d', d);
+  basePath.setAttribute('stroke', color);
+  basePath.setAttribute('class', 'edge-base');
+  basePath.setAttribute('data-edge', edgeKey);
+  basePath.setAttribute('data-cat-group', catGroup);
+  if (isDimmed) basePath.style.opacity = '0.06';
+  svg.appendChild(basePath);
+
+  if (!isDimmed) {
+    const pulsePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    pulsePath.setAttribute('d', d);
+    pulsePath.setAttribute('stroke', color);
+    pulsePath.style.color = color;
+    pulsePath.setAttribute('class', 'edge-pulse');
+    pulsePath.setAttribute('data-edge', edgeKey);
+    pulsePath.setAttribute('data-cat-group', catGroup);
+    svg.appendChild(pulsePath);
+  }
 }
 
-// RENDERIZADO CUADRÍCULA BENTO
+// RENDERIZADO CUADRÍCULA BENTO CON EFECTO SPOTLIGHT EN TARJETAS
 function renderBento() {
   const container = document.getElementById('bentoContainer');
   container.innerHTML = '';
@@ -511,6 +552,12 @@ function renderBento() {
         </div>
       `;
 
+      card.addEventListener('mousemove', (e) => {
+        const rect = card.getBoundingClientRect();
+        card.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
+        card.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
+      });
+
       card.querySelector('.node-stack-btn').addEventListener('click', (e) => {
         e.stopPropagation();
         toggleToolInStack(tool.id);
@@ -523,7 +570,7 @@ function renderBento() {
   });
 }
 
-// MOTOR DEL ASESOR INTELIGENTE DE PROYECTOS (Punto 2)
+// MOTOR DEL ASESOR INTELIGENTE DE PROYECTOS
 function runProjectAdvisor(rawText) {
   const text = rawText.toLowerCase().trim();
   state.currentProject.description = rawText.trim();
@@ -594,7 +641,6 @@ function runProjectAdvisor(rawText) {
   const topTools = ranked.slice(0, 10).map(r => r.tool);
   state.recommendedIds = topTools.map(t => t.id);
 
-  // Abrir automáticamente en el árbol las ramas que contienen las recomendaciones
   state.expandedCategories.clear();
   topTools.forEach(t => state.expandedCategories.add(t.category));
 
@@ -671,7 +717,7 @@ function renderStackDock() {
   });
 }
 
-// GESTIÓN DE PROYECTOS GUARDADOS (Punto 5)
+// GESTIÓN DE PROYECTOS GUARDADOS
 function saveCurrentProjectToLibrary() {
   const nameInput = document.getElementById('projectNameInput');
   const descInput = document.getElementById('advisorInput');
@@ -724,7 +770,6 @@ function loadSavedProject(projId) {
   document.getElementById('projectNameInput').value = found.name;
   document.getElementById('advisorInput').value = found.description;
 
-  // Desplegar automáticamente las ramas de las tecnologías que usa este proyecto
   state.expandedCategories.clear();
   state.currentProject.stackIds.forEach(id => {
     const t = state.tools.find(item => item.id === id);
@@ -866,7 +911,6 @@ function populateModalCategories() {
 
 // ENLACE DE EVENTOS
 function bindEvents() {
-  // Conmutador Árbol / Bento
   document.getElementById('btnViewTree').addEventListener('click', () => {
     state.view = 'tree';
     document.getElementById('btnViewTree').classList.add('active');
@@ -883,7 +927,6 @@ function bindEvents() {
     document.getElementById('treeViewport').classList.remove('active');
   });
 
-  // Abrir / Cerrar Ventana Flotante Derecha
   const fw = document.getElementById('floatingWindow');
   document.getElementById('btnToggleWindow').addEventListener('click', () => {
     fw.classList.toggle('open');
@@ -896,7 +939,6 @@ function bindEvents() {
     tabBtn.addEventListener('click', () => switchFloatingTab(tabBtn.dataset.tab));
   });
 
-  // Disposiciones del Árbol
   const setLayout = (mode) => {
     state.layout = mode;
     document.getElementById('btnLayoutMatrix').classList.toggle('active', mode === 'matrix');
@@ -910,7 +952,6 @@ function bindEvents() {
   document.getElementById('btnLayoutWing').addEventListener('click', () => setLayout('wing'));
   document.getElementById('btnLayoutOrbital').addEventListener('click', () => setLayout('orbital'));
 
-  // Desplegar / Plegar todas las ramas
   document.getElementById('btnExpandAll').addEventListener('click', () => {
     CATEGORIES.forEach(c => state.expandedCategories.add(c.id));
     renderTree();
@@ -923,13 +964,11 @@ function bindEvents() {
     centerCamera(false);
   });
 
-  // Búsqueda
   document.getElementById('searchInput').addEventListener('input', (e) => {
     state.search = e.target.value;
     renderAll();
   });
 
-  // Arrastre y Zoom LERP a 60 FPS en el lienzo
   const treeViewport = document.getElementById('treeViewport');
 
   treeViewport.addEventListener('mousedown', (e) => {
@@ -966,7 +1005,6 @@ function bindEvents() {
   });
   document.getElementById('btnResetCamera').addEventListener('click', () => centerCamera(false));
 
-  // Eventos del Asesor de Proyectos
   document.getElementById('projectNameInput').addEventListener('input', (e) => {
     state.currentProject.name = e.target.value;
     persistActiveProject();
@@ -1001,7 +1039,6 @@ function bindEvents() {
     renderAll();
   });
 
-  // Eventos de Guardado de Proyectos
   document.getElementById('btnSaveProjectQuick').addEventListener('click', saveCurrentProjectToLibrary);
   document.getElementById('btnSaveCurrentProjectFull').addEventListener('click', saveCurrentProjectToLibrary);
   document.getElementById('btnSaveStackAsProject').addEventListener('click', () => {
@@ -1010,7 +1047,6 @@ function bindEvents() {
   });
   document.getElementById('btnNewBlankProject').addEventListener('click', startNewBlankProject);
 
-  // Eventos del Stack Lab Inferior
   document.getElementById('btnToggleStackFocus').addEventListener('click', () => {
     if (state.currentProject.stackIds.length === 0 && !state.stackFocusMode) {
       alert('Añade primero al menos una tecnología a tu Stack Lab (o usa el Asesor) para activar el Modo Enfoque.');
@@ -1037,7 +1073,6 @@ function bindEvents() {
     renderAll();
   });
 
-  // Eventos del Inspector
   document.getElementById('btnToggleStackFromInspector').addEventListener('click', () => {
     if (state.selectedToolId) toggleToolInStack(state.selectedToolId);
   });
@@ -1066,7 +1101,6 @@ function bindEvents() {
     setTimeout(() => { btn.textContent = 'Copiar'; }, 1400);
   });
 
-  // Modal Añadir Tecnología
   const modal = document.getElementById('modalBackdrop');
   document.getElementById('btnOpenModal').addEventListener('click', () => modal.classList.add('open'));
   document.getElementById('btnCloseModal').addEventListener('click', () => modal.classList.remove('open'));
@@ -1100,7 +1134,6 @@ function bindEvents() {
     inspectTool(newTool.id);
   });
 
-  // Exportar Backup JSON
   document.getElementById('btnExportJson').addEventListener('click', () => {
     const data = {
       exportedAt: new Date().toISOString(),
