@@ -88,7 +88,7 @@ const KEY_SEEN_TOOLS = 'devtree_v8_seen_tools';
 const KEY_DAILY_AUTO_CACHE = 'devtree_v8_daily_auto_cache';
 const KEY_SUPA_CONFIG = 'devtree_v8_supa_config';
 
-// ESTADO GLOBAL (Sin sonidos)
+// ESTADO GLOBAL
 const state = {
   view: 'tree',
   layout: 'matrix',
@@ -103,6 +103,7 @@ const state = {
   isCardPinned: false,
   isCardVisible: false,
   recommendedIds: [],
+  recommendedReasons: {}, // Guarda la justificación exacta generada por Ollama para cada tecnología: { [toolId]: "Por qué es necesaria..." }
   tools: [],
   seenToolIds: new Set(),
   userProgress: {},
@@ -142,7 +143,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   startSmoothCameraLoop();
   initLenisSmoothScroll();
   initBackgroundParticles();
-  checkOllamaStatus();
+  await checkOllamaStatus();
   renderAll();
 });
 
@@ -150,13 +151,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function checkOllamaStatus() {
   const led = document.getElementById('ollamaLed');
   const label = document.getElementById('ollamaStatusLabel');
-  if (!led || !label) return;
+  if (!led || !label) return false;
 
   label.textContent = 'Comprobando localhost:11434...';
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 1800);
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
     const res = await fetch('http://localhost:11434/api/tags', { signal: controller.signal });
     clearTimeout(timeoutId);
 
@@ -164,19 +165,25 @@ async function checkOllamaStatus() {
     const data = await res.json();
     const models = data.models || [];
 
-    // Detectar si tienes qwen2.5-coder instalado o usar el primer modelo disponible
-    const preferred = models.find(m => m.name.toLowerCase().includes('qwen')) || models[0];
-    if (preferred) {
+    // Priorizar tu modelo Qwen Coder 7B o el primero disponible en tu máquina
+    const preferred =
+      models.find(m => m.name.toLowerCase().includes('qwen2.5-coder')) ||
+      models.find(m => m.name.toLowerCase().includes('qwen')) ||
+      models[0];
+
+    if (preferred && preferred.name) {
       state.ollamaModelName = preferred.name;
     }
 
     state.ollamaOnline = true;
     led.className = 'status-led online';
     label.textContent = `Ollama Activo (${state.ollamaModelName})`;
+    return true;
   } catch (err) {
     state.ollamaOnline = false;
     led.className = 'status-led offline';
     label.textContent = 'Motor Local (Ollama desconectado)';
+    return false;
   }
 }
 
@@ -959,7 +966,16 @@ function populateTechCardDOM(tool) {
   document.getElementById('tcBadge').textContent = tool.badge;
   document.getElementById('tcUrl').href = tool.url;
   document.getElementById('tcSummary').textContent = tool.summary;
-  document.getElementById('tcUseCase').textContent = tool.useCase;
+
+  // Si esta tecnología fue recomendada para el proyecto actual, mostramos arriba por qué es necesaria
+  const aiReason = state.recommendedReasons[tool.id];
+  const useCaseEl = document.getElementById('tcUseCase');
+  if (aiReason) {
+    useCaseEl.innerHTML = `<strong style="color:#fbbf24;">★ Por qué en tu proyecto:</strong> ${aiReason}<br/><span style="color:#94a3b8; font-size:0.77rem;">Uso general: ${tool.useCase}</span>`;
+  } else {
+    useCaseEl.textContent = tool.useCase;
+  }
+
   document.getElementById('tcSnippet').textContent = tool.snippet || `// Ver documentación en ${tool.url}`;
   document.getElementById('tcNotes').value = prog.notes || '';
 
@@ -1161,6 +1177,9 @@ function renderTree() {
 
     // 3. NODOS DE TECNOLOGÍA DE ESTA RAMA
     const sortedTools = [...visibleCatTools].sort((a, b) => {
+      const aRec = state.recommendedIds.includes(a.id) ? 1 : 0;
+      const bRec = state.recommendedIds.includes(b.id) ? 1 : 0;
+      if (bRec !== aRec) return bRec - aRec;
       const aNew = isToolUnreadNew(a) ? 1 : 0;
       const bNew = isToolUnreadNew(b) ? 1 : 0;
       return bNew - aNew;
@@ -1375,18 +1394,20 @@ function renderBento() {
   });
 }
 
-// ==================== ASESOR CON CATÁLOGO CERRADO ANTI-ALUCINACIONES ====================
+// ==================== ASESOR DE ARQUITECTURA: OLLAMA PROFUNDO (SIN PALABRAS CLAVE) ====================
 async function runProjectAdvisor(rawText) {
-  const text = rawText.toLowerCase().trim();
-  state.currentProject.description = rawText.trim();
+  const cleanPrompt = rawText.trim();
+  state.currentProject.description = cleanPrompt;
   persistActiveProject();
 
   const container = document.getElementById('advisorResultsContainer');
   const btnPassAll = document.getElementById('btnPassAllToStack');
   const reasoningBox = document.getElementById('aiReasoningBox');
+  const runBtn = document.getElementById('btnRunAdvisor');
 
-  if (!text) {
+  if (!cleanPrompt) {
     state.recommendedIds = [];
+    state.recommendedReasons = {};
     btnPassAll.style.display = 'none';
     reasoningBox.style.display = 'none';
     container.innerHTML = `<p class="empty-hint">Describe tu proyecto arriba y pulsa <strong>Analizar y Recomendar</strong>.</p>`;
@@ -1394,37 +1415,163 @@ async function runProjectAdvisor(rawText) {
     return;
   }
 
-  // 1. Puntuación determinista sobre el catálogo cerrado (Garantiza 0 tecnologías inventadas)
+  // Verificar en vivo si Ollama responde en localhost:11434
+  const isOnline = await checkOllamaStatus();
+
+  if (isOnline) {
+    // MODO 100% OLLAMA: Descartamos por completo el filtro de palabras clave
+    runBtn.disabled = true;
+    runBtn.textContent = 'Razonando con IA...';
+    btnPassAll.style.display = 'none';
+    reasoningBox.style.display = 'block';
+    reasoningBox.innerHTML = `🟢 <strong>Analizando con ${state.ollamaModelName}:</strong> Leyendo las descripciones completas de las ${state.tools.length} tecnologías del catálogo para diseñar tu stack a medida...`;
+    container.innerHTML = `<p class="empty-hint">⏳ Evaluando compatibilidad de lenguajes, frameworks, bases de datos y librerías para tu proyecto...</p>`;
+
+    try {
+      // Le pasamos el catálogo completo con su descripción técnica y caso de uso real
+      const fullCatalogContext = state.tools.map(t => {
+        const cleanName = t.name.replace(' [NUEVO]', '');
+        return `- ID: "${t.id}" | Nombre: ${cleanName} | Rama: ${t.category} | Descripción: ${t.summary} | Ideal para: ${t.useCase}`;
+      }).join('\n');
+
+      const deepArchitectPrompt = `Eres un Arquitecto de Software Senior. El usuario quiere desarrollar el siguiente proyecto:
+"${cleanPrompt}"
+
+A continuación tienes el catálogo completo de tecnologías disponibles con sus descripciones:
+${fullCatalogContext}
+
+INSTRUCCIONES ESTRICTAS DE SELECCIÓN:
+1. Analiza qué necesita realmente el proyecto del usuario (lenguaje principal, framework, base de datos, librerías de animación/3D o despliegue) leyendo las descripciones del catálogo.
+2. Selecciona únicamente entre 4 y 8 tecnologías que formen un stack coherente y necesario.
+3. NO elijas tecnologías redundantes que compitan por el mismo puesto (por ejemplo: no elijas Astro y Next.js a la vez; no elijas Supabase y Firebase a la vez; no elijas Java/Android si el usuario pide solo una web estática).
+4. PROHIBIDO inventar IDs fuera de la lista proporcionada.
+5. Para cada tecnología seleccionada, escribe en "razon" una frase clara y directa en español explicando exactamente POR QUÉ es necesaria en este proyecto concreto del usuario.
+
+Responde ÚNICAMENTE con un objeto JSON válido con esta estructura exacta:
+{
+  "arquitectura": "Resumen técnico en español (2 frases) de cómo se conectan las tecnologías elegidas para este proyecto.",
+  "seleccion": [
+    {
+      "id": "id_exacto_del_catalogo",
+      "razon": "Por qué esta tecnología es necesaria específicamente para lo que pide el usuario."
+    }
+  ]
+}`;
+
+      const res = await fetch('http://localhost:11434/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: state.ollamaModelName,
+          prompt: deepArchitectPrompt,
+          format: 'json',
+          options: {
+            temperature: 0.1,
+            num_ctx: 8192
+          },
+          stream: false
+        })
+      });
+
+      if (!res.ok) {
+        throw new Error(`Error HTTP ${res.status} en Ollama`);
+      }
+
+      const data = await res.json();
+      const parsed = JSON.parse(data.response);
+
+      const rawSelection = Array.isArray(parsed.seleccion) ? parsed.seleccion : [];
+      const verifiedTools = [];
+      const newReasons = {};
+
+      rawSelection.forEach(item => {
+        if (!item || !item.id) return;
+        const foundTool = state.tools.find(t => t.id === item.id);
+        if (foundTool && !verifiedTools.some(vt => vt.id === foundTool.id)) {
+          verifiedTools.push(foundTool);
+          newReasons[foundTool.id] = item.razon || foundTool.useCase;
+        }
+      });
+
+      if (verifiedTools.length === 0) {
+        throw new Error('El modelo no devolvió IDs válidos del catálogo.');
+      }
+
+      state.recommendedIds = verifiedTools.map(t => t.id);
+      state.recommendedReasons = newReasons;
+
+      // Desplegar en el árbol únicamente las ramas que contienen las tecnologías elegidas por Ollama
+      state.expandedCategories.clear();
+      verifiedTools.forEach(t => state.expandedCategories.add(t.category));
+
+      reasoningBox.innerHTML = `🟢 <strong>Arquitectura diseñada por ${state.ollamaModelName}:</strong><br/>${parsed.arquitectura || 'Stack seleccionado analizando las descripciones completas de tu catálogo.'}`;
+      btnPassAll.style.display = 'inline-flex';
+      renderAdvisorList(verifiedTools, cleanPrompt);
+      renderAll();
+    } catch (err) {
+      // Si el modelo falla o devuelve un JSON malformado, avisamos con transparencia y usamos el motor determinista de emergencia
+      runDeterministicFallbackAdvisor(cleanPrompt, `⚠️ Aviso de Ollama (${err.message}). Se muestra selección técnica de respaldo:`);
+    } finally {
+      runBtn.disabled = false;
+      runBtn.textContent = 'Analizar y Recomendar';
+    }
+  } else {
+    // MODO OFFLINE (Solo si tienes Ollama cerrado)
+    runDeterministicFallbackAdvisor(
+      cleanPrompt,
+      `⚪ <strong>Ollama está desconectado:</strong> Usando análisis local de respaldo. Abre Ollama con <code>OLLAMA_ORIGINS="*"</code> y pulsa el botón de estado superior para activar el razonamiento profundo con IA.`
+    );
+  }
+}
+
+// Motor de respaldo (solo se ejecuta si Ollama está apagado en tu ordenador)
+function runDeterministicFallbackAdvisor(rawText, bannerHtml) {
+  const text = rawText.toLowerCase();
+  const btnPassAll = document.getElementById('btnPassAllToStack');
+  const reasoningBox = document.getElementById('aiReasoningBox');
+
   const intentRules = [
     {
       match: ['portfolio', 'awwwards', 'landing', 'fluida', 'animada', 'animaciones', 'creativa', 'scroll', 'estudio'],
-      boostIds: ['lang-js', 'lang-ts', 'gsap', 'scrolltrigger', 'lenis', 'astro', 'tailwind', 'fontshare', 'vercel']
+      boostIds: ['lang-ts', 'gsap', 'scrolltrigger', 'lenis', 'astro', 'tailwind', 'fontshare', 'vercel'],
+      reasonPrefix: 'Esencial para lograr fluidez, animaciones a 60 FPS y carga instantánea en tu web:'
     },
     {
       match: ['3d', 'webgl', 'modelo', 'modelos', 'shaders', 'particulas', 'blender', 'spline', 'inmersiva'],
-      boostIds: ['lang-js', 'lang-sql-glsl', 'threejs', 'r3f', 'spline', 'blender', 'polyhaven-sketchfab', 'squoosh-gltf']
+      boostIds: ['lang-js', 'threejs', 'spline', 'blender', 'polyhaven-sketchfab', 'squoosh-gltf'],
+      reasonPrefix: 'Necesaria para el pipeline de modelado, compresión y renderizado 3D en el navegador:'
     },
     {
       match: ['app', 'pwa', 'aplicacion', 'gastos', 'piso', 'tareas', 'usuarios', 'login', 'sql', 'base de datos', 'fullstack'],
-      boostIds: ['lang-ts', 'lang-js', 'lang-sql-glsl', 'nextjs', 'tailwind', 'shadcn-radix', 'motion-dev', 'supabase', 'prisma-drizzle']
+      boostIds: ['lang-ts', 'nextjs', 'tailwind', 'shadcn-radix', 'supabase', 'prisma-drizzle'],
+      reasonPrefix: 'Pieza clave para gestionar usuarios, estado full-stack y persistencia relacional SQL:'
     },
     {
       match: ['movil', 'android', 'java', 'kotlin', 'musica', 'streaming', 'reproductor', 'audio'],
-      boostIds: ['lang-java', 'lang-kotlin', 'android-pwa', 'firebase', 'howlerjs', 'rive']
+      boostIds: ['lang-java', 'lang-kotlin', 'android-pwa', 'firebase', 'howlerjs', 'rive'],
+      reasonPrefix: 'Requerida para el desarrollo móvil, sincronización cloud y reproducción multimedia:'
     },
     {
       match: ['ia', 'inteligencia artificial', 'local', 'ollama', 'pdf', 'test', 'cine', 'video', 'timeline', 'python', 'docker'],
-      boostIds: ['lang-python', 'lang-ts', 'ollama-ai', 'docker', 'supabase', 'sveltekit', 'theatrejs']
+      boostIds: ['lang-python', 'ollama-ai', 'docker', 'supabase', 'sveltekit', 'theatrejs'],
+      reasonPrefix: 'Fundamental para procesar modelos de IA, contenedores y lógica de backend:'
     }
   ];
 
   const scores = new Map();
+  const customReasons = {};
   state.tools.forEach(t => scores.set(t.id, 0));
 
   intentRules.forEach(rule => {
     const hits = rule.match.filter(w => text.includes(w)).length;
     if (hits > 0) {
-      rule.boostIds.forEach(id => scores.set(id, (scores.get(id) || 0) + hits * 4));
+      rule.boostIds.forEach(id => {
+        scores.set(id, (scores.get(id) || 0) + hits * 4);
+        const toolObj = state.tools.find(t => t.id === id);
+        if (toolObj) {
+          customReasons[id] = `${rule.reasonPrefix} ${toolObj.useCase}`;
+        }
+      });
     }
   });
 
@@ -1432,7 +1579,12 @@ async function runProjectAdvisor(rawText) {
   state.tools.forEach(tool => {
     const hay = `${tool.name} ${tool.badge} ${tool.summary} ${tool.useCase} ${tool.keywords || ''}`.toLowerCase();
     words.forEach(w => {
-      if (hay.includes(w)) scores.set(tool.id, (scores.get(tool.id) || 0) + 3);
+      if (hay.includes(w)) {
+        scores.set(tool.id, (scores.get(tool.id) || 0) + 3);
+        if (!customReasons[tool.id]) {
+          customReasons[tool.id] = `Encaja directamente con tu requisito ("${w}"): ${tool.useCase}`;
+        }
+      }
     });
   });
 
@@ -1442,91 +1594,53 @@ async function runProjectAdvisor(rawText) {
     .sort((a, b) => b.score - a.score);
 
   if (ranked.length === 0) {
-    const def = ['lang-ts', 'lang-js', 'gsap', 'lenis', 'astro', 'tailwind', 'supabase', 'vercel'];
+    const def = ['lang-ts', 'gsap', 'lenis', 'astro', 'tailwind', 'supabase', 'vercel'];
     ranked = state.tools.filter(t => def.includes(t.id)).map(t => ({ tool: t, score: 5 }));
+    ranked.forEach(({ tool }) => {
+      customReasons[tool.id] = `Base recomendada para arquitectura moderna: ${tool.useCase}`;
+    });
   }
 
-  let topTools = ranked.slice(0, 10).map(r => r.tool);
+  const topTools = ranked.slice(0, 7).map(r => r.tool);
   state.recommendedIds = topTools.map(t => t.id);
+  state.recommendedReasons = customReasons;
 
   state.expandedCategories.clear();
   topTools.forEach(t => state.expandedCategories.add(t.category));
 
+  reasoningBox.style.display = 'block';
+  reasoningBox.innerHTML = bannerHtml;
   btnPassAll.style.display = 'inline-flex';
+
   renderAdvisorList(topTools, rawText);
   renderAll();
-
-  // 2. Comprobar Ollama en tiempo real: solo puede elegir IDs válidos de state.tools (Cero alucinación)
-  await checkOllamaStatus();
-  reasoningBox.style.display = 'block';
-
-  if (state.ollamaOnline) {
-    reasoningBox.innerHTML = `🟢 <strong>Consultando a ${state.ollamaModelName} en local...</strong> (Restringido estrictamente a las ${state.tools.length} herramientas de tu catálogo)`;
-    try {
-      const catalogList = state.tools.map(t => `${t.id}: ${t.name} (${t.badge})`).join('\n');
-      const strictPrompt = `Eres un arquitecto de software. El usuario quiere crear: "${rawText}".
-Elige entre 5 y 8 tecnologías ÚNICAMENTE de esta lista cerrada (PROHIBIDO inventar nombres o IDs fuera de esta lista):
-${catalogList}
-
-Responde SOLO en JSON con este formato exacto:
-{"selected_ids": ["id1", "id2"], "explicacion": "Breve explicación en español de 2 frases de cómo combinarlas."}`;
-
-      const res = await fetch('http://localhost:11434/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: state.ollamaModelName,
-          prompt: strictPrompt,
-          format: 'json',
-          options: { temperature: 0.1 },
-          stream: false
-        })
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const parsed = JSON.parse(data.response);
-
-        // Filtrado estricto: descartar cualquier ID que no exista exactamente en state.tools
-        if (Array.isArray(parsed.selected_ids)) {
-          const verifiedTools = parsed.selected_ids
-            .map(id => state.tools.find(t => t.id === id))
-            .filter(Boolean);
-
-          if (verifiedTools.length >= 3) {
-            topTools = verifiedTools;
-            state.recommendedIds = topTools.map(t => t.id);
-            state.expandedCategories.clear();
-            topTools.forEach(t => state.expandedCategories.add(t.category));
-            renderAdvisorList(topTools, rawText);
-            renderAll();
-          }
-        }
-
-        reasoningBox.innerHTML = `🟢 <strong>Respuesta de tu IA Local (${state.ollamaModelName}):</strong> ${parsed.explicacion || 'Selección verificada contra el catálogo.'}`;
-      }
-    } catch (err) {
-      reasoningBox.innerHTML = `⚪ <strong>Motor Local Determinista:</strong> Se han seleccionado <strong>${topTools.length} tecnologías verificadas</strong> de tu catálogo.`;
-    }
-  } else {
-    reasoningBox.innerHTML = `⚪ <strong>Motor Local Determinista (Ollama apagado):</strong> Se han seleccionado <strong>${topTools.length} tecnologías reales</strong> de tu catálogo por coincidencia técnica.`;
-  }
 }
 
+// Renderiza la lista del Asesor incluyendo debajo de cada tecnología la explicación de por qué es necesaria
 function renderAdvisorList(topTools, rawText) {
   const container = document.getElementById('advisorResultsContainer');
   container.innerHTML = '';
 
   topTools.forEach(tool => {
     const inStack = state.currentProject.stackIds.includes(tool.id);
+    const reasonText = state.recommendedReasons[tool.id] || tool.useCase;
+
     const row = document.createElement('div');
     row.className = 'rec-item';
+    row.style.alignItems = 'flex-start';
+    row.style.gap = '10px';
+
     row.innerHTML = `
-      <div class="rec-item-info">
-        <span class="rec-item-name">★ ${tool.name.replace(' [NUEVO]', '')}</span>
-        <span class="rec-item-sub">${tool.badge}</span>
+      <div class="rec-item-info" style="flex:1; gap:3px;">
+        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+          <span class="rec-item-name">★ ${tool.name.replace(' [NUEVO]', '')}</span>
+          <span class="rec-item-sub" style="font-family:var(--font-mono); color:var(--accent-primary);">(${tool.badge})</span>
+        </div>
+        <p style="font-size:0.74rem; color:#dbe4f3; line-height:1.42; margin-top:2px;">
+          ${reasonText}
+        </p>
       </div>
-      <button type="button" class="node-stack-btn ${inStack ? 'in-stack' : ''}">
+      <button type="button" class="node-stack-btn ${inStack ? 'in-stack' : ''}" style="margin-top:2px; flex-shrink:0;">
         ${inStack ? '✓ En Stack' : '+ Stack'}
       </button>
     `;
@@ -1577,7 +1691,10 @@ function generateStarterKitBlueprint() {
 Generado automáticamente por DevTree Studio OS
 
 ## 1. Tecnologías en tu Stack (${selected.length})
-${selected.map(t => `- **${t.name.replace(' [NUEVO]', '')}** (${t.badge}): ${t.url}`).join('\n') || '- Ninguna seleccionada aún'}
+${selected.map(t => {
+  const why = state.recommendedReasons[t.id] ? ` — *${state.recommendedReasons[t.id]}*` : '';
+  return `- **${t.name.replace(' [NUEVO]', '')}** (${t.badge}): ${t.url}${why}`;
+}).join('\n') || '- Ninguna seleccionada aún'}
 
 ## 2. Comandos de Inicialización Rápida
 \`\`\`bash
@@ -1772,6 +1889,7 @@ function startNewBlankProject() {
     stackIds: []
   };
   state.recommendedIds = [];
+  state.recommendedReasons = {};
   state.stackFocusMode = false;
   state.expandedCategories.clear();
 
