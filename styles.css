@@ -196,7 +196,6 @@ body {
   color: #fff;
 }
 
-/* Indicador superior de novedades sin leer */
 .unread-counter-pill {
   display: inline-flex;
   align-items: center;
@@ -318,12 +317,12 @@ body {
 }
 
 .btn-xs {
-  height: 24px;
-  padding: 0 8px;
+  height: 25px;
+  padding: 0 9px;
   font-size: 0.7rem;
 }
 
-/* WORKSPACE Y LIENZO CON RENDERIZADO VECTORIAL NÍTIDO */
+/* WORKSPACE Y LIENZO LIMPIO A PANTALLA COMPLETA */
 .workspace {
   position: relative;
   flex: 1;
@@ -355,8 +354,6 @@ body {
   z-index: 15;
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
 }
 
 .hud-group {
@@ -376,7 +373,7 @@ body {
   background: transparent;
   color: var(--text-muted);
   border: none;
-  padding: 0 10px;
+  padding: 0 11px;
   font-size: 0.74rem;
   font-weight: 500;
   border-radius: 6px;
@@ -394,29 +391,6 @@ body {
   color: var(--accent-primary);
 }
 
-.zoom-readout {
-  font-family: var(--font-mono);
-  font-size: 0.73rem;
-  color: var(--text-main);
-  min-width: 44px;
-  text-align: center;
-}
-
-.canvas-hint {
-  position: absolute;
-  bottom: 58px;
-  left: 22px;
-  z-index: 15;
-  font-size: 0.73rem;
-  color: var(--text-muted);
-  background: rgba(11, 16, 26, 0.84);
-  padding: 6px 13px;
-  border-radius: 999px;
-  border: 1px solid var(--border-subtle);
-  pointer-events: none;
-}
-
-/* CORRECCIÓN DE NITIDEZ: Sin will-change ni translate3d que congelaban la textura bitmap */
 .tree-stage {
   position: absolute;
   top: 0;
@@ -490,7 +464,7 @@ body {
   pointer-events: auto;
 }
 
-/* NODOS ALINEADOS A PÍXEL ENTERO (Sin translate(-50%, -50%) para evitar subpíxeles borrosos) */
+/* NODOS ALINEADOS A PÍXEL ENTERO */
 .node {
   position: absolute;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
@@ -602,7 +576,6 @@ body {
   margin-top: 3px;
 }
 
-/* Insignia NEW flotante en Categorías que contienen novedades sin leer */
 .cat-new-pill {
   position: absolute;
   top: -10px;
@@ -684,7 +657,6 @@ body {
   flex-shrink: 0;
 }
 
-/* ICONO NEW EN NODO DE TECNOLOGÍA (Desaparece al pasar el ratón y leer la tarjeta) */
 .new-badge {
   display: inline-flex;
   align-items: center;
@@ -758,13 +730,13 @@ body {
   text-overflow: ellipsis;
 }
 
-/* PANEL IZQUIERDO INDEPENDIENTE PARA ASESOR & PROYECTOS */
+/* VENTANA DEL ASISTENTE (ASESOR + PROYECTOS + STACK LAB ABAJO) */
 .studio-panel {
   position: absolute;
   top: 16px;
   left: 22px;
-  bottom: 58px;
-  width: 400px;
+  bottom: 16px;
+  width: 410px;
   max-width: calc(100vw - 44px);
   background: rgba(10, 14, 24, 0.96);
   backdrop-filter: blur(20px);
@@ -774,7 +746,7 @@ body {
   display: flex;
   flex-direction: column;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75);
-  transform: translate(-440px, 0);
+  transform: translate(-450px, 0);
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   user-select: text;
   overflow: hidden;
@@ -1002,6 +974,109 @@ body {
   gap: 6px;
 }
 
+/* STACK LAB INTEGRADO ABAJO EN LA VENTANA DEL ASISTENTE */
+.studio-stack-footer {
+  background: rgba(7, 10, 18, 0.96);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.ssf-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ssf-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stack-dock-title {
+  font-family: var(--font-mono);
+  font-size: 0.71rem;
+  font-weight: 700;
+  color: var(--accent-emerald);
+  letter-spacing: 0.05em;
+}
+
+.stack-dock-count {
+  font-size: 0.71rem;
+  color: var(--text-muted);
+}
+
+.stack-dock-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  max-height: 82px;
+  overflow-y: auto;
+}
+
+.stack-dock-empty {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.stack-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: rgba(16, 185, 129, 0.14);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: var(--text-main);
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.stack-chip button {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.7rem;
+}
+
+.stack-chip button:hover {
+  color: #fff;
+}
+
+.ssf-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.btn-focus-toggle {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--accent-emerald);
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+
+.btn-focus-toggle.active {
+  background: var(--accent-emerald);
+  color: #04130d;
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.4);
+}
+
 /* TARJETA DERECHA EXCLUSIVA DE TECNOLOGÍA */
 .tech-card {
   position: absolute;
@@ -1009,7 +1084,7 @@ body {
   right: 22px;
   width: 386px;
   max-width: calc(100vw - 44px);
-  max-height: calc(100vh - 138px);
+  max-height: calc(100vh - 92px);
   background: rgba(11, 15, 26, 0.95);
   backdrop-filter: blur(22px);
   border: 1px solid rgba(255, 255, 255, 0.14);
@@ -1351,7 +1426,7 @@ body {
   position: absolute;
   inset: 0;
   overflow-y: auto;
-  padding: 24px 425px 80px 28px;
+  padding: 24px 425px 40px 28px;
   display: none;
   user-select: text;
 }
@@ -1457,102 +1532,6 @@ body {
   border-top: 1px solid rgba(255, 255, 255, 0.05);
   font-size: 0.71rem;
   color: var(--text-dim);
-}
-
-/* DOCK INFERIOR: STACK LAB */
-.stack-dock {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 46px;
-  background: rgba(7, 10, 18, 0.95);
-  border-top: 1px solid var(--border-subtle);
-  z-index: 32;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 22px;
-  gap: 14px;
-}
-
-.stack-dock-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  white-space: nowrap;
-}
-
-.stack-dock-title {
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--accent-emerald);
-}
-
-.stack-dock-count {
-  font-size: 0.72rem;
-  color: var(--text-muted);
-}
-
-.stack-dock-chips {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  overflow-x: auto;
-}
-
-.stack-dock-empty {
-  font-size: 0.73rem;
-  color: var(--text-dim);
-}
-
-.stack-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 26px;
-  padding: 0 9px;
-  border-radius: 6px;
-  background: rgba(16, 185, 129, 0.14);
-  border: 1px solid rgba(16, 185, 129, 0.4);
-  color: var(--text-main);
-  font-size: 0.72rem;
-  font-family: var(--font-mono);
-  white-space: nowrap;
-}
-
-.stack-chip button {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-
-.stack-dock-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn-focus-toggle {
-  height: 30px;
-  padding: 0 12px;
-  border-radius: 7px;
-  border: 1px solid rgba(16, 185, 129, 0.4);
-  background: rgba(16, 185, 129, 0.1);
-  color: var(--accent-emerald);
-  font-size: 0.74rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.18s;
-}
-
-.btn-focus-toggle.active {
-  background: var(--accent-emerald);
-  color: #04130d;
-  box-shadow: 0 0 16px rgba(16, 185, 129, 0.4);
 }
 
 .btn-icon {
