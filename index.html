@@ -11,9 +11,8 @@
   <link href="https://api.fontshare.com/v2/css?f[]=clash-display@600,700&f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
 
-  <!-- Librerías (GSAP + Flip, Lenis, Three.js, Matter.js, Anime.js, Lucide) -->
+  <!-- Librerías (GSAP, Lenis, Three.js, Matter.js, Anime.js, Lucide) -->
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/Flip.min.js"></script>
   <script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
@@ -38,7 +37,7 @@
           <span class="logo-ring"></span>
         </div>
         <div class="brand-text">
-          <div class="brand-title">DEVTREE <span class="brand-tag">// PLAYGROUND v8.3</span></div>
+          <div class="brand-title">DEVTREE <span class="brand-tag">// PLAYGROUND v9.6</span></div>
           <div class="brand-subtitle" id="activeProjectHeader">Proyecto en curso (0 en Stack)</div>
         </div>
       </div>
@@ -78,10 +77,10 @@
   </header>
 
   <!-- ESPACIO DE TRABAJO PRINCIPAL -->
-  <main class="workspace">
-    <!-- VISTA 1: LIENZO DE ÁRBOL LIMPIO -->
+  <main class="workspace" id="mainWorkspace">
+    <!-- VISTA 1: LIENZO DE ÁRBOL -->
     <section class="tree-viewport active" id="treeViewport">
-      <div class="canvas-hud">
+      <div class="canvas-hud" id="canvasHud">
         <div class="hud-group">
           <button type="button" class="hud-btn active" id="btnLayoutMatrix">Matriz</button>
           <button type="button" class="hud-btn" id="btnLayoutWing">Simétrico 4×4</button>
@@ -95,13 +94,18 @@
       </div>
     </section>
 
-    <!-- VISTA 2: EXPLORADOR BENTO CON LENIS SMOOTH SCROLL -->
+    <!-- VISTA 2: CUADRÍCULA BENTO DE 3 COLUMNAS CON TARJETAS COMPLETAS -->
     <section class="bento-viewport" id="bentoViewport">
-      <div class="bento-container" id="bentoContainer"></div>
+      <div class="bento-stage" id="bentoStage">
+        <!-- Anclaje superior perfectamente centrado para el núcleo -->
+        <div class="bento-core-dock" id="bentoCoreDock"></div>
+        <!-- Cuadrícula de 3 columnas con las fichas completas directamente abiertas -->
+        <div class="bento-unified-grid" id="bentoUnifiedGrid"></div>
+      </div>
     </section>
 
-    <!-- CAPA DE MORPHING FLIP ENTRE VISTAS (Árbol <-> Bento) -->
-    <div class="morph-layer" id="morphLayer" aria-hidden="true"></div>
+    <!-- CAPA DE SINGULARIDAD TECNOLÓGICA (Agujero negro sin texto durante el giro + vuelo de tarjetas) -->
+    <div class="singularity-overlay" id="singularityOverlay" aria-hidden="true"></div>
 
     <!-- VENTANA DEL ASISTENTE (ASESOR + PROYECTOS + STACK LAB ABAJO) -->
     <aside class="studio-panel" id="studioPanel" aria-hidden="true">
@@ -249,7 +253,7 @@
       </div>
     </aside>
 
-    <!-- TARJETA DERECHA EXCLUSIVA: VISTA RÁPIDA DE TECNOLOGÍA (HOVER / PIN) -->
+    <!-- TARJETA DERECHA EXCLUSIVA PARA LA VISTA DE ÁRBOL (En Bento ya no se abre porque las tarjetas están completas) -->
     <aside class="tech-card" id="techCard" aria-hidden="true">
       <div class="tc-accent-bar" id="tcAccentBar"></div>
 

@@ -88,7 +88,7 @@ const KEY_SEEN_TOOLS = 'devtree_v8_seen_tools';
 const KEY_DAILY_AUTO_CACHE = 'devtree_v8_daily_auto_cache';
 const KEY_SUPA_CONFIG = 'devtree_v8_supa_config';
 
-// ESTADO GLOBAL INICIALIZADO CON LAS 48 TECNOLOGÍAS DESDE EL SEGUNDO 0
+// ESTADO GLOBAL
 const state = {
   view: 'tree',
   layout: 'matrix',
@@ -123,8 +123,11 @@ const state = {
     targetY: 0,
     targetScale: 0.75,
     isDragging: false,
-    dragStartX: 0,
-    dragStartY: 0
+    pointerId: null,
+    startMouseX: 0,
+    startMouseY: 0,
+    startCamX: 0,
+    startCamY: 0
   },
   threeCore: null,
   matterInstance: null,
@@ -145,9 +148,6 @@ function on(id, eventName, handler, options) {
 // ARRANQUE SÍNCRONO INMEDIATO
 document.addEventListener('DOMContentLoaded', () => {
   try {
-    if (window.gsap && window.Flip) {
-      gsap.registerPlugin(Flip);
-    }
     if (window.lucide) {
       window.lucide.createIcons();
     }
@@ -165,6 +165,23 @@ document.addEventListener('DOMContentLoaded', () => {
   loadDailyAdditionsAsync();
   checkOllamaStatus();
 });
+
+// ==================== ADAPTACIÓN REACTIVA DEL PASILLO CENTRAL ====================
+function syncWorkspaceCorridor() {
+  const ws = document.getElementById('mainWorkspace');
+  const studioPanel = document.getElementById('studioPanel');
+  if (!ws) return;
+
+  const isLeftOpen = studioPanel ? studioPanel.classList.contains('open') : false;
+  const isRightOpen = state.view === 'tree' && state.isCardVisible;
+
+  ws.classList.toggle('left-open', isLeftOpen);
+  ws.classList.toggle('right-open', isRightOpen);
+
+  if (state.view === 'bento' && state.lenisBento && typeof state.lenisBento.resize === 'function') {
+    setTimeout(() => state.lenisBento.resize(), 360);
+  }
+}
 
 // ==================== CARGA SÍNCRONA INMEDIATA DESDE LOCALSTORAGE ====================
 function loadLocalDataSync() {
@@ -373,7 +390,7 @@ async function fetchLiveDailyToolsFromGitHub(forceIfEmpty = false) {
   return [];
 }
 
-// ==================== MOTOR MORPHING FLIP ENTRE ÁRBOL Y BENTO ====================
+// ==================== CONMUTADOR PRINCIPAL CON AGUJERO NEGRO TECNOLÓGICO SIN LETRAS ====================
 function switchMainView(targetView) {
   if (state.view === targetView || state.isMorphingView) return;
 
@@ -381,156 +398,447 @@ function switchMainView(targetView) {
   const btnBento = document.getElementById('btnViewBento');
   const treeVp = document.getElementById('treeViewport');
   const bentoVp = document.getElementById('bentoViewport');
-  const morphLayer = document.getElementById('morphLayer');
+  const overlay = document.getElementById('singularityOverlay');
 
-  if (!treeVp || !bentoVp || !morphLayer || !window.gsap) {
+  if (!treeVp || !bentoVp || !overlay || !window.gsap) {
     state.view = targetView;
     btnTree?.classList.toggle('active', targetView === 'tree');
     btnBento?.classList.toggle('active', targetView === 'bento');
     treeVp?.classList.toggle('active', targetView === 'tree');
     bentoVp?.classList.toggle('active', targetView === 'bento');
+    renderAll();
     return;
   }
 
   state.isMorphingView = true;
-  if (!state.isCardPinned) {
-    closeTechCard();
-  }
+  state.camera.isDragging = false;
+  closeTechCard();
 
   btnTree?.classList.toggle('active', targetView === 'tree');
   btnBento?.classList.toggle('active', targetView === 'bento');
 
-  // Asegurar que ambos lienzos tienen sus elementos renderizados antes de medir coordenadas
-  renderTree();
+  resetBranchesWithGSAP(true);
+  syncWorkspaceCorridor();
+
+  if (targetView === 'bento') {
+    animateTreeToBento(treeVp, bentoVp, overlay);
+  } else {
+    animateBentoToTree(treeVp, bentoVp, overlay);
+  }
+}
+
+// Crea el Agujero Negro Tecnológico SIN letras en su interior
+function createFloatingCoreActor(rect) {
+  const actor = document.createElement('div');
+  actor.className = 'singularity-core-actor';
+  actor.style.width = `${rect.width}px`;
+  actor.style.height = `${rect.height}px`;
+  actor.style.left = `${rect.left}px`;
+  actor.style.top = `${rect.top}px`;
+
+  actor.innerHTML = `<div class="singularity-core-horizon"></div>`;
+
+  if (state.threeCore && state.threeCore.renderer) {
+    actor.prepend(state.threeCore.renderer.domElement);
+  }
+
+  return actor;
+}
+
+// 1. TRANSICIÓN DE ÁRBOL -> BENTO
+function animateTreeToBento(treeVp, bentoVp, overlay) {
   renderBento();
+  bentoVp.scrollTop = 0;
 
-  const visibleTools = state.tools.filter(t => isToolVisibleByFilter(t));
-  morphLayer.innerHTML = '';
+  const treeRootEl = treeVp.querySelector('.node-root');
+  const bentoDockEl = document.getElementById('bentoCoreDock');
+  const bentoCoreNode = bentoDockEl ? bentoDockEl.querySelector('.node-root') : null;
+  const hudEl = document.getElementById('canvasHud');
+  const svgEl = document.getElementById('treeSvg');
 
-  const morphItems = [];
+  if (!treeRootEl || !bentoDockEl) {
+    state.view = 'bento';
+    treeVp.classList.remove('active');
+    bentoVp.classList.add('active');
+    state.isMorphingView = false;
+    renderAll();
+    return;
+  }
 
-  visibleTools.forEach((tool, idx) => {
-    const cat = CATEGORIES.find(c => c.id === tool.category);
-    const catColor = cat ? cat.color : '#38bdf8';
+  const rootRect = treeRootEl.getBoundingClientRect();
+  // Medimos exactamente el rectángulo del nodo cuadrado (156x156) dentro del dock centrado de Bento
+  const targetDockRect = (bentoCoreNode || bentoDockEl).getBoundingClientRect();
+  const dockSize = 156;
+  const dockLeft = Math.round(targetDockRect.left + (targetDockRect.width - dockSize) / 2);
+  const dockTop = Math.round(targetDockRect.top + (targetDockRect.height - dockSize) / 2);
+  const dockCenterX = dockLeft + dockSize / 2;
+  const dockCenterY = dockTop + dockSize / 2;
 
-    const treeNodeEl = document.querySelector(`.node-tool[data-tool-id="${tool.id}"]`);
-    const treeCatEl = document.querySelector(`.node-category[data-cat-id="${tool.category}"]`);
-    const bentoCardEl = document.querySelector(`.bento-card[data-tool-id="${tool.id}"]`);
+  overlay.innerHTML = '';
+  const coreActor = createFloatingCoreActor(rootRect);
+  overlay.appendChild(coreActor);
+  treeRootEl.style.opacity = '0';
 
-    const treeAnchorEl = treeNodeEl || treeCatEl;
-    if (!treeAnchorEl || !bentoCardEl) return;
+  const centerXStage = 1800;
+  const rootYStage = state.layout === 'matrix' ? 420 : 1300;
 
-    const treeRect = treeAnchorEl.getBoundingClientRect();
-    const bentoRect = bentoCardEl.getBoundingClientRect();
-
-    const fromRect = targetView === 'bento' ? treeRect : bentoRect;
-    const toRect = targetView === 'bento' ? bentoRect : treeRect;
-
-    // Filtrar tarjetas que estén totalmente fuera de la pantalla en ambos extremos para máxima fluidez
-    const vh = window.innerHeight;
-    const vw = window.innerWidth;
-    const fromInScreen = fromRect.bottom > -250 && fromRect.top < vh + 250 && fromRect.right > -250 && fromRect.left < vw + 250;
-    const toInScreen = toRect.bottom > -250 && toRect.top < vh + 250 && toRect.right > -250 && toRect.left < vw + 250;
-    if (!fromInScreen && !toInScreen) return;
-
-    const flyer = document.createElement('div');
-    flyer.className = 'morph-flying-card';
-    flyer.style.setProperty('--cat-color', catColor);
-    flyer.style.width = `${Math.max(40, fromRect.width)}px`;
-    flyer.style.height = `${Math.max(28, fromRect.height)}px`;
-    flyer.style.transform = `translate3d(${fromRect.left}px, ${fromRect.top}px, 0)`;
-
-    const displayName = tool.name.replace(' [NUEVO]', '');
-    flyer.innerHTML = `
-      <div class="morph-flying-top">
-        <span class="morph-flying-title">${displayName}</span>
-        <span class="morph-flying-badge">${tool.badge}</span>
-      </div>
-      <p class="morph-flying-summary">${tool.summary}</p>
-    `;
-
-    const summaryEl = flyer.querySelector('.morph-flying-summary');
-    if (summaryEl) {
-      summaryEl.style.opacity = targetView === 'bento' ? '0' : '1';
-    }
-
-    morphLayer.appendChild(flyer);
-
-    morphItems.push({
-      flyer,
-      summaryEl,
-      fromRect,
-      toRect,
-      treeNodeEl,
-      bentoCardEl,
-      isCollapsedOrigin: !treeNodeEl,
-      index: idx
-    });
-  });
-
-  // Ocultar temporalmente las tarjetas originales mientras sus clones viajan entre vistas
-  morphItems.forEach(item => {
-    if (item.treeNodeEl) item.treeNodeEl.classList.add('morph-hidden-item');
-    if (item.bentoCardEl) item.bentoCardEl.classList.add('morph-hidden-item');
-  });
-
-  // Cambiar las clases activas de los contenedores para que las curvas del árbol o las cabeceras Bento hagan un fundido natural
-  state.view = targetView;
-  treeVp.classList.toggle('active', targetView === 'tree');
-  bentoVp.classList.toggle('active', targetView === 'bento');
+  const allToolNodes = Array.from(treeVp.querySelectorAll('.node-tool'));
+  const allCatNodes = Array.from(treeVp.querySelectorAll('.node-category'));
+  const toolEdges = Array.from(svgEl.querySelectorAll('[data-edge^="tool-"]'));
+  const catEdges = Array.from(svgEl.querySelectorAll('[data-edge^="cat-"]'));
 
   const tl = gsap.timeline({
     onComplete: () => {
-      morphItems.forEach(item => {
-        if (item.treeNodeEl) item.treeNodeEl.classList.remove('morph-hidden-item');
-        if (item.bentoCardEl) item.bentoCardEl.classList.remove('morph-hidden-item');
-      });
-      morphLayer.innerHTML = '';
+      state.view = 'bento';
+      treeVp.classList.remove('active');
+      bentoVp.classList.add('active');
+      overlay.innerHTML = '';
       state.isMorphingView = false;
+      renderAll();
 
-      if (targetView === 'bento' && state.lenisBento && typeof state.lenisBento.resize === 'function') {
+      const finalDockedNode = document.querySelector('#bentoCoreDock .node-root');
+      if (finalDockedNode) {
+        gsap.fromTo(
+          finalDockedNode.querySelectorAll('.node-root-tag, .node-root-title, .node-root-sub'),
+          { opacity: 0, y: 4 },
+          { opacity: 1, y: 0, duration: 0.28, stagger: 0.04, ease: 'power2.out' }
+        );
+      }
+
+      if (state.lenisBento && typeof state.lenisBento.resize === 'function') {
         state.lenisBento.resize();
       }
     }
   });
 
-  // Animar el viaje y cambio de tamaño de cada recuadro hasta su posición final
-  morphItems.forEach((item, i) => {
-    const staggerDelay = Math.min(0.22, i * 0.006);
+  if (hudEl) {
+    tl.to(hudEl, { opacity: 0, duration: 0.25 }, 0);
+  }
 
-    tl.fromTo(
-      item.flyer,
+  if (state.threeCore) {
+    state.threeCore.speedMultiplier = 6;
+  }
+
+  // PASO 1: Las tecnologías desplegadas son absorbidas hacia sus categorías
+  if (allToolNodes.length > 0) {
+    tl.to(toolEdges, { opacity: 0, duration: 0.3, ease: 'power2.in' }, 0);
+    allToolNodes.forEach(toolEl => {
+      const catId = toolEl.closest('.branch-node-group')?.dataset.catId;
+      const catCoords = state.categoryCoords.get(catId);
+      if (catCoords) {
+        tl.to(
+          toolEl,
+          {
+            left: catCoords.x,
+            top: catCoords.y,
+            scale: 0.2,
+            opacity: 0,
+            duration: 0.42,
+            ease: 'back.in(1.2)'
+          },
+          0
+        );
+      }
+    });
+  }
+
+  const step2Start = allToolNodes.length > 0 ? 0.34 : 0.02;
+
+  // PASO 2: Las categorías son absorbidas hacia el agujero negro central
+  tl.to(catEdges, { opacity: 0, duration: 0.38, ease: 'power2.in' }, step2Start);
+  allCatNodes.forEach((catEl, idx) => {
+    tl.to(
+      catEl,
       {
-        x: item.fromRect.left,
-        y: item.fromRect.top,
-        width: item.fromRect.width,
-        height: item.fromRect.height,
-        opacity: targetView === 'bento' && item.isCollapsedOrigin ? 0.35 : 1
+        left: centerXStage,
+        top: rootYStage,
+        scale: 0.15,
+        opacity: 0,
+        duration: 0.46,
+        ease: 'power3.in'
       },
-      {
-        x: item.toRect.left,
-        y: item.toRect.top,
-        width: item.toRect.width,
-        height: item.toRect.height,
-        opacity: targetView === 'tree' && item.isCollapsedOrigin ? 0.15 : 1,
-        duration: 0.62,
-        ease: 'expo.inOut'
-      },
-      staggerDelay
+      step2Start + idx * 0.015
     );
+  });
 
-    if (item.summaryEl) {
-      tl.to(
-        item.summaryEl,
-        {
-          opacity: targetView === 'bento' ? 1 : 0,
-          duration: 0.36,
-          ease: 'power2.inOut'
-        },
-        staggerDelay + (targetView === 'bento' ? 0.2 : 0)
-      );
+  tl.fromTo(
+    coreActor,
+    { scale: 1 },
+    { scale: 1.15, duration: 0.2, yoyo: true, repeat: 1, ease: 'power2.out' },
+    step2Start + 0.32
+  );
+
+  // PASO 3: El agujero negro tecnológico (sin letras) sube girando hasta su sitio centrado
+  const step3Start = step2Start + 0.46;
+  tl.to(
+    coreActor,
+    {
+      left: dockLeft,
+      top: dockTop,
+      width: dockSize,
+      height: dockSize,
+      rotation: 540,
+      duration: 0.54,
+      ease: 'power3.inOut',
+      onComplete: () => {
+        if (state.threeCore) {
+          state.threeCore.speedMultiplier = 1;
+        }
+      }
+    },
+    step3Start
+  );
+
+  // PASO 4: El núcleo deja de girar y escupe las tarjetas completas en 3 columnas
+  const step4Start = step3Start + 0.54;
+  const bentoCards = Array.from(bentoVp.querySelectorAll('.bento-card'));
+
+  tl.call(() => {
+    bentoCards.forEach(c => { c.style.opacity = '0'; });
+    if (bentoCoreNode) bentoCoreNode.style.opacity = '0';
+    treeVp.classList.remove('active');
+    bentoVp.classList.add('active');
+  }, null, step4Start);
+
+  bentoCards.forEach((cardEl, idx) => {
+    const targetRect = cardEl.getBoundingClientRect();
+    const flyer = document.createElement('div');
+    flyer.className = 'singularity-flying-item';
+    flyer.style.setProperty('--cat-color', cardEl.style.getPropertyValue('--cat-color') || '#38bdf8');
+    flyer.innerHTML = cardEl.innerHTML;
+
+    const startW = 84;
+    const startH = 56;
+    flyer.style.width = `${startW}px`;
+    flyer.style.height = `${startH}px`;
+    flyer.style.left = `${dockCenterX - startW / 2}px`;
+    flyer.style.top = `${dockCenterY - startH / 2}px`;
+    flyer.style.opacity = '0';
+    flyer.style.transform = 'scale(0.22)';
+
+    overlay.appendChild(flyer);
+
+    const delay = Math.min(0.24, idx * 0.012);
+    tl.to(
+      flyer,
+      {
+        left: targetRect.left,
+        top: targetRect.top,
+        width: targetRect.width,
+        height: targetRect.height,
+        opacity: 1,
+        scale: 1,
+        duration: 0.48,
+        ease: 'back.out(1.06)'
+      },
+      step4Start + delay
+    );
+  });
+}
+
+// 2. TRANSICIÓN DE BENTO -> ÁRBOL
+function animateBentoToTree(treeVp, bentoVp, overlay) {
+  renderTree();
+
+  const bentoDockEl = document.getElementById('bentoCoreDock');
+  const bentoCoreNode = bentoDockEl ? bentoDockEl.querySelector('.node-root') : null;
+  const treeRootEl = treeVp.querySelector('.node-root');
+  const hudEl = document.getElementById('canvasHud');
+  const svgEl = document.getElementById('treeSvg');
+
+  if (!bentoDockEl || !treeRootEl) {
+    state.view = 'tree';
+    bentoVp.classList.remove('active');
+    treeVp.classList.add('active');
+    state.isMorphingView = false;
+    renderAll();
+    return;
+  }
+
+  const dockRect = (bentoCoreNode || bentoDockEl).getBoundingClientRect();
+  const dockCenterX = dockRect.left + dockRect.width / 2;
+  const dockCenterY = dockRect.top + dockRect.height / 2;
+
+  const treeRootRect = treeRootEl.getBoundingClientRect();
+
+  overlay.innerHTML = '';
+  const coreActor = createFloatingCoreActor(dockRect);
+  overlay.appendChild(coreActor);
+
+  if (bentoCoreNode) bentoCoreNode.style.opacity = '0';
+
+  const bentoCards = Array.from(bentoVp.querySelectorAll('.bento-card'));
+  const flyers = [];
+
+  bentoCards.forEach(cardEl => {
+    const r = cardEl.getBoundingClientRect();
+    if (r.bottom < -250 || r.top > window.innerHeight + 250) {
+      cardEl.style.opacity = '0';
+      return;
+    }
+
+    const flyer = document.createElement('div');
+    flyer.className = 'singularity-flying-item';
+    flyer.style.setProperty('--cat-color', cardEl.style.getPropertyValue('--cat-color') || '#38bdf8');
+    flyer.innerHTML = cardEl.innerHTML;
+    flyer.style.left = `${r.left}px`;
+    flyer.style.top = `${r.top}px`;
+    flyer.style.width = `${r.width}px`;
+    flyer.style.height = `${r.height}px`;
+
+    overlay.appendChild(flyer);
+    cardEl.style.opacity = '0';
+    flyers.push(flyer);
+  });
+
+  if (state.threeCore) {
+    state.threeCore.speedMultiplier = 7;
+  }
+
+  const tl = gsap.timeline({
+    onComplete: () => {
+      if (state.threeCore) state.threeCore.speedMultiplier = 1;
+      state.view = 'tree';
+      bentoVp.classList.remove('active');
+      treeVp.classList.add('active');
+      overlay.innerHTML = '';
+      state.isMorphingView = false;
+      renderAll();
+
+      const finalTreeRoot = document.querySelector('#treeNodes .node-root');
+      if (finalTreeRoot) {
+        gsap.fromTo(
+          finalTreeRoot.querySelectorAll('.node-root-tag, .node-root-title, .node-root-sub'),
+          { opacity: 0, y: 4 },
+          { opacity: 1, y: 0, duration: 0.28, stagger: 0.04, ease: 'power2.out' }
+        );
+      }
     }
   });
+
+  // PASO 1: El agujero negro tecnológico absorbe todas las tarjetas
+  tl.fromTo(
+    coreActor,
+    { scale: 1 },
+    { scale: 1.18, duration: 0.26, ease: 'power2.out' },
+    0
+  );
+
+  flyers.forEach((flyer, idx) => {
+    const delay = Math.min(0.18, idx * 0.008);
+    tl.to(
+      flyer,
+      {
+        left: dockCenterX - 35,
+        top: dockCenterY - 25,
+        width: 70,
+        height: 50,
+        scale: 0.08,
+        rotation: (idx % 2 === 0 ? 1 : -1) * 35,
+        opacity: 0,
+        duration: 0.46,
+        ease: 'power3.in'
+      },
+      delay
+    );
+  });
+
+  // PASO 2: El agujero negro desciende a su posición original en el árbol
+  const step2Start = 0.5;
+  tl.to(
+    coreActor,
+    {
+      left: treeRootRect.left,
+      top: treeRootRect.top,
+      width: treeRootRect.width,
+      height: treeRootRect.height,
+      scale: 1,
+      rotation: -540,
+      duration: 0.52,
+      ease: 'power3.inOut',
+      onStart: () => {
+        bentoVp.classList.remove('active');
+      }
+    },
+    step2Start
+  );
+
+  // PASO 3: El núcleo expulsa primero las categorías y de ellas nacen las tecnologías
+  const step3Start = step2Start + 0.52;
+
+  const centerXStage = 1800;
+  const rootYStage = state.layout === 'matrix' ? 420 : 1300;
+  const allCatNodes = Array.from(treeVp.querySelectorAll('.node-category'));
+  const allToolNodes = Array.from(treeVp.querySelectorAll('.node-tool'));
+  const catEdges = Array.from(svgEl.querySelectorAll('[data-edge^="cat-"]'));
+  const toolEdges = Array.from(svgEl.querySelectorAll('[data-edge^="tool-"]'));
+
+  tl.call(() => {
+    treeRootEl.style.opacity = '0';
+    catEdges.forEach(e => { e.style.opacity = '0'; });
+    toolEdges.forEach(e => { e.style.opacity = '0'; });
+    treeVp.classList.add('active');
+  }, null, step3Start);
+
+  allCatNodes.forEach((catEl, idx) => {
+    const finalX = parseFloat(catEl.style.left);
+    const finalY = parseFloat(catEl.style.top);
+    tl.fromTo(
+      catEl,
+      {
+        left: centerXStage,
+        top: rootYStage,
+        scale: 0.2,
+        opacity: 0
+      },
+      {
+        left: finalX,
+        top: finalY,
+        scale: 1,
+        opacity: 1,
+        duration: 0.44,
+        ease: 'back.out(1.25)'
+      },
+      step3Start + idx * 0.015
+    );
+  });
+
+  tl.to(catEdges, { opacity: 0.25, duration: 0.35 }, step3Start + 0.15);
+
+  if (allToolNodes.length > 0) {
+    const toolsEmergeStart = step3Start + 0.32;
+    allToolNodes.forEach((toolEl, idx) => {
+      const catId = toolEl.closest('.branch-node-group')?.dataset.catId;
+      const catCoords = state.categoryCoords.get(catId) || { x: centerXStage, y: rootYStage };
+      const finalX = parseFloat(toolEl.style.left);
+      const finalY = parseFloat(toolEl.style.top);
+
+      tl.fromTo(
+        toolEl,
+        {
+          left: catCoords.x,
+          top: catCoords.y,
+          scale: 0.25,
+          opacity: 0
+        },
+        {
+          left: finalX,
+          top: finalY,
+          scale: 1,
+          opacity: 1,
+          duration: 0.38,
+          ease: 'back.out(1.2)'
+        },
+        toolsEmergeStart + (idx % 6) * 0.025
+      );
+    });
+
+    tl.to(toolEdges, { opacity: 0.25, duration: 0.3 }, toolsEmergeStart + 0.12);
+  }
+
+  if (hudEl) {
+    tl.to(hudEl, { opacity: 1, duration: 0.3 }, step3Start + 0.25);
+  }
 }
 
 // ==================== VERIFICADOR DE CONEXIÓN REAL CON OLLAMA LOCAL ====================
@@ -572,23 +880,23 @@ async function checkOllamaStatus() {
   }
 }
 
-// ==================== LENIS SMOOTH SCROLL + VIEW TRANSITIONS ====================
+// ==================== LENIS SMOOTH SCROLL SOBRE LA VISTA BENTO ====================
 function initLenisSmoothScroll() {
   try {
     if (!window.Lenis) return;
-    const bentoViewport = document.getElementById('bentoViewport');
-    const bentoContainer = document.getElementById('bentoContainer');
-    if (!bentoViewport || !bentoContainer) return;
+    const bentoVp = document.getElementById('bentoViewport');
+    const bentoStage = document.getElementById('bentoStage');
+    if (!bentoVp || !bentoStage) return;
 
     state.lenisBento = new Lenis({
-      wrapper: bentoViewport,
-      content: bentoContainer,
+      wrapper: bentoVp,
+      content: bentoStage,
       lerp: 0.09,
       smoothWheel: true
     });
 
     function raf(time) {
-      if (state.view === 'bento' && state.lenisBento) {
+      if (state.view === 'bento' && !state.isMorphingView && state.lenisBento) {
         state.lenisBento.raf(time);
       }
       requestAnimationFrame(raf);
@@ -688,9 +996,10 @@ function mountThreeRootCore(containerEl) {
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
     camera.position.z = 3.1;
 
+    // El false final en setSize evita que Three.js imponga 196px inline en el style y permite que CSS lo escale al 100% del círculo
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-    renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(width, height, false);
     renderer.domElement.className = 'root-webgl-canvas';
     containerEl.prepend(renderer.domElement);
 
@@ -868,8 +1177,7 @@ function markToolAsSeen(toolId) {
   state.seenToolIds.add(toolId);
   persistSeenTools();
 
-  const nodeEl = document.querySelector(`.node-tool[data-tool-id="${toolId}"]`);
-  if (nodeEl) {
+  document.querySelectorAll(`[data-tool-id="${toolId}"]`).forEach(nodeEl => {
     nodeEl.classList.remove('unread-new-node');
     const badge = nodeEl.querySelector('.new-badge');
     if (badge) {
@@ -884,7 +1192,7 @@ function markToolAsSeen(toolId) {
         badge.remove();
       }
     }
-  }
+  });
 
   updateCategoryAndTopNewBadges();
 }
@@ -961,15 +1269,23 @@ function isToolVisibleByFilter(tool) {
   return true;
 }
 
-// LIMPIAR TODOS LOS FILTROS DE LA PÁGINA
+// LIMPIAR TODOS LOS FILTROS Y DEJAR EN BLANCO EL NOMBRE Y DESCRIPCIÓN DEL PROYECTO
 function clearAllGlobalFilters() {
   state.search = '';
   state.stackFocusMode = false;
   state.recommendedIds = [];
   state.recommendedReasons = {};
+  state.currentProject.name = '';
+  state.currentProject.description = '';
 
   const searchInput = document.getElementById('searchInput');
   if (searchInput) searchInput.value = '';
+
+  const projectNameInput = document.getElementById('projectNameInput');
+  if (projectNameInput) projectNameInput.value = '';
+
+  const advisorInput = document.getElementById('advisorInput');
+  if (advisorInput) advisorInput.value = '';
 
   const reasoningBox = document.getElementById('aiReasoningBox');
   if (reasoningBox) reasoningBox.style.display = 'none';
@@ -982,6 +1298,7 @@ function clearAllGlobalFilters() {
     resultsBox.innerHTML = `<p class="empty-hint">Describe tu proyecto arriba y pulsa <strong>Analizar y Recomendar</strong>. Solo se seleccionarán tecnologías reales de tu catálogo.</p>`;
   }
 
+  persistActiveProject();
   resetBranchesWithGSAP(true);
   renderAll();
 }
@@ -992,42 +1309,47 @@ function updateClearFilterButtonState() {
   const hasActiveFilter =
     state.search.trim() !== '' ||
     state.stackFocusMode ||
-    state.recommendedIds.length > 0;
+    state.recommendedIds.length > 0 ||
+    (state.currentProject.name || '').trim() !== '';
   btn.classList.toggle('active', hasActiveFilter);
 }
 
-// MOTOR DE CÁMARA FLUIDA Y NÍTIDA
+// ==================== MOTOR DE CÁMARA ESTABLE (SIN SALTOS AL ARRASTRAR) ====================
 function startSmoothCameraLoop() {
   const stage = document.getElementById('treeStage');
   if (!stage) return;
-  let isSettled = true;
 
   function step() {
-    const cam = state.camera;
-    const lerpFactor = cam.isDragging ? 0.42 : 0.18;
+    if (state.view === 'tree' && !state.isMorphingView) {
+      const cam = state.camera;
 
-    const dx = cam.targetX - cam.currentX;
-    const dy = cam.targetY - cam.currentY;
-    const ds = cam.targetScale - cam.currentScale;
+      if (cam.isDragging) {
+        // Durante el arrastre con el ratón, el movimiento es 1:1 directo para evitar cualquier rebote o locura de interpolación
+        cam.currentX = cam.targetX;
+        cam.currentY = cam.targetY;
+        stage.style.transform = `translate(${Math.round(cam.currentX)}px, ${Math.round(cam.currentY)}px) scale(${cam.currentScale})`;
+      } else {
+        const dx = cam.targetX - cam.currentX;
+        const dy = cam.targetY - cam.currentY;
+        const ds = cam.targetScale - cam.currentScale;
 
-    if (Math.abs(dx) > 0.15 || Math.abs(dy) > 0.15 || Math.abs(ds) > 0.0005) {
-      isSettled = false;
-      cam.currentX += dx * lerpFactor;
-      cam.currentY += dy * lerpFactor;
-      cam.currentScale += ds * lerpFactor;
+        if (Math.abs(dx) > 0.2 || Math.abs(dy) > 0.2 || Math.abs(ds) > 0.0005) {
+          cam.currentX += dx * 0.22;
+          cam.currentY += dy * 0.22;
+          cam.currentScale += ds * 0.22;
 
-      stage.style.transform = `translate(${cam.currentX.toFixed(1)}px, ${cam.currentY.toFixed(1)}px) scale(${cam.currentScale.toFixed(4)})`;
-    } else if (!isSettled) {
-      isSettled = true;
-      cam.targetX = Math.round(cam.targetX);
-      cam.targetY = Math.round(cam.targetY);
-      cam.targetScale = Number(cam.targetScale.toFixed(3));
+          stage.style.transform = `translate(${cam.currentX.toFixed(1)}px, ${cam.currentY.toFixed(1)}px) scale(${cam.currentScale.toFixed(4)})`;
+        } else {
+          cam.targetX = Math.round(cam.targetX);
+          cam.targetY = Math.round(cam.targetY);
+          cam.targetScale = Number(cam.targetScale.toFixed(3));
+          cam.currentX = cam.targetX;
+          cam.currentY = cam.targetY;
+          cam.currentScale = cam.targetScale;
 
-      cam.currentX = cam.targetX;
-      cam.currentY = cam.targetY;
-      cam.currentScale = cam.targetScale;
-
-      stage.style.transform = `translate(${cam.currentX}px, ${cam.currentY}px) scale(${cam.currentScale})`;
+          stage.style.transform = `translate(${cam.currentX}px, ${cam.currentY}px) scale(${cam.currentScale})`;
+        }
+      }
     }
 
     requestAnimationFrame(step);
@@ -1067,8 +1389,9 @@ function applyZoomAtPoint(newScale, mouseX, mouseY) {
   state.camera.targetScale = clamped;
 }
 
-// MOTOR GSAP ESTABILIZADO
+// MOTOR GSAP ESTABILIZADO (Bloqueado mientras arrastras el árbol para no pelear con el ratón)
 function focusBranchWithGSAP(activeCatId, specificToolId = null) {
+  if (state.view !== 'tree' || state.isMorphingView || state.camera.isDragging) return;
   clearTimeout(resetBranchesTimer);
   const svg = document.getElementById('treeSvg');
   if (!svg) return;
@@ -1167,9 +1490,9 @@ function resetBranchesWithGSAP(immediate = false) {
   }
 }
 
-// TARJETA DERECHA DE VISTA RÁPIDA
+// TARJETA DERECHA DE VISTA RÁPIDA (EXCLUSIVA PARA EL MODO ÁRBOL)
 function scheduleShowTechCard(toolId) {
-  if (state.isMorphingView) return;
+  if (state.view !== 'tree' || state.isMorphingView || state.camera.isDragging) return;
   clearTimeout(hoverCloseTimer);
   if (state.isCardPinned && state.activeToolId !== toolId) return;
 
@@ -1189,6 +1512,7 @@ function scheduleHideTechCard() {
 }
 
 function openTechCard(toolId, pinIt = false) {
+  if (state.view !== 'tree') return;
   const tool = state.tools.find(t => t.id === toolId);
   if (!tool) return;
 
@@ -1206,6 +1530,8 @@ function openTechCard(toolId, pinIt = false) {
   card.classList.add('visible');
   card.classList.toggle('pinned', state.isCardPinned);
   card.setAttribute('aria-hidden', 'false');
+
+  syncWorkspaceCorridor();
 
   document.querySelectorAll('.node-tool').forEach(el => {
     el.classList.toggle('selected', el.dataset.toolId === toolId);
@@ -1301,6 +1627,8 @@ function closeTechCard() {
   card.classList.remove('visible', 'pinned');
   card.setAttribute('aria-hidden', 'true');
 
+  syncWorkspaceCorridor();
+
   document.querySelectorAll('.node-tool.selected').forEach(el => el.classList.remove('selected'));
 
   if (window.gsap) {
@@ -1320,6 +1648,7 @@ function closeTechCard() {
 function renderAll() {
   updateHeaderProjectLabel();
   updateClearFilterButtonState();
+  syncWorkspaceCorridor();
   renderTree();
   renderBento();
   renderStackDock();
@@ -1353,9 +1682,12 @@ function renderTree() {
     <span class="node-root-sub">${allExpanded ? 'Clic para plegar ramas' : 'Clic para desplegar todas'}</span>
   `;
 
-  mountThreeRootCore(rootEl);
+  if (state.view === 'tree' && !state.isMorphingView) {
+    mountThreeRootCore(rootEl);
+  }
 
   rootEl.addEventListener('mouseenter', () => {
+    if (state.camera.isDragging) return;
     clearTimeout(resetBranchesTimer);
     if (state.threeCore) state.threeCore.speedMultiplier = 3.2;
     svg.querySelectorAll('[data-edge^="cat-"]').forEach(p => {
@@ -1560,12 +1892,14 @@ function renderTree() {
       `;
 
       toolEl.addEventListener('mouseenter', () => {
+        if (state.camera.isDragging) return;
         focusBranchWithGSAP(cat.id, tool.id);
         catEl.classList.add('cat-highlighted');
         scheduleShowTechCard(tool.id);
       });
 
       toolEl.addEventListener('mouseleave', () => {
+        if (state.camera.isDragging) return;
         resetBranchesWithGSAP();
         catEl.classList.remove('cat-highlighted');
         scheduleHideTechCard();
@@ -1627,69 +1961,161 @@ function drawConnection(svgGroup, x1, y1, x2, y2, color, isDimmed, edgeKey, isVe
   }
 }
 
-// RENDERIZADO CUADRÍCULA BENTO (Con atributo data-tool-id para medición FLIP)
+// ==================== RENDERIZADO DE LA CUADRÍCULA BENTO DE 3 COLUMNAS CON NODO PERFECTAMENTE CUADRADO ====================
 function renderBento() {
-  const container = document.getElementById('bentoContainer');
-  if (!container) return;
-  container.innerHTML = '';
+  const coreDock = document.getElementById('bentoCoreDock');
+  const grid = document.getElementById('bentoUnifiedGrid');
+  if (!coreDock || !grid) return;
 
-  CATEGORIES.forEach(cat => {
-    const tools = state.tools.filter(t => t.category === cat.id && isToolVisibleByFilter(t));
-    if (tools.length === 0) return;
+  coreDock.innerHTML = '';
+  grid.innerHTML = '';
 
-    const group = document.createElement('div');
-    group.innerHTML = `
-      <div class="bento-group-header">
-        <span class="bento-group-dot" style="background:${cat.color}"></span>
-        <h3 class="bento-group-title">${cat.name}</h3>
-      </div>
-      <div class="bento-grid"></div>
-    `;
+  // 1. El Nodo Central 100% cuadrado y centrado sobre las 3 columnas
+  const dockedRoot = document.createElement('div');
+  dockedRoot.className = 'node node-root';
+  const projTitle = state.currentProject.name ? state.currentProject.name.toUpperCase() : 'STACK PRO';
+  dockedRoot.innerHTML = `
+    <span class="node-root-tag">CORE ACTIVO</span>
+    <div class="node-root-title">${projTitle}</div>
+    <span class="node-root-sub">Clic para volver al Árbol</span>
+  `;
 
-    const grid = group.querySelector('.bento-grid');
-    tools.forEach(tool => {
-      const inStack = state.currentProject.stackIds.includes(tool.id);
-      const isRec = state.recommendedIds.includes(tool.id);
-      const isUnread = isToolUnreadNew(tool);
-      const displayName = tool.name.replace(' [NUEVO]', '');
+  if (state.view === 'bento' && !state.isMorphingView) {
+    mountThreeRootCore(dockedRoot);
+  }
 
-      const card = document.createElement('article');
-      card.className = 'bento-card';
-      card.dataset.toolId = tool.id;
-      card.style.setProperty('--cat-color', cat.color);
-      card.innerHTML = `
-        <div class="bento-card-header">
-          <div class="bento-card-title">${isRec ? '★ ' : ''}${displayName}</div>
-          <div style="display:flex; gap:6px; align-items:center;">
+  dockedRoot.addEventListener('click', () => {
+    switchMainView('tree');
+  });
+  coreDock.appendChild(dockedRoot);
+
+  // 2. Cuadrícula de 3 columnas con todas las fichas completas abiertas
+  const visibleTools = state.tools.filter(t => isToolVisibleByFilter(t));
+
+  visibleTools.forEach(tool => {
+    const cat = CATEGORIES.find(c => c.id === tool.category);
+    const catColor = cat ? cat.color : '#38bdf8';
+    const catName = cat ? cat.name : 'Tecnología';
+    const inStack = state.currentProject.stackIds.includes(tool.id);
+    const isRec = state.recommendedIds.includes(tool.id);
+    const isUnread = isToolUnreadNew(tool);
+    const displayName = tool.name.replace(' [NUEVO]', '');
+    const prog = getToolProgress(tool.id);
+
+    const aiReason = state.recommendedReasons[tool.id];
+    const useCaseHtml = aiReason
+      ? `<strong style="color:#fbbf24;">★ Por qué en tu proyecto:</strong> ${aiReason}<br/><span style="color:#94a3b8; font-size:0.74rem;">Uso general: ${tool.useCase}</span>`
+      : `<strong>Ideal para:</strong> ${tool.useCase}`;
+
+    const rawSynergies = (tool.synergy || 'HTML + CSS + JS').split(/[+,/]/).map(s => s.trim()).filter(Boolean);
+    const synergiesHtml = rawSynergies.map(s => `<span class="tc-syn-chip">${s}</span>`).join('');
+
+    const card = document.createElement('article');
+    card.className = 'bento-card';
+    card.dataset.toolId = tool.id;
+    card.style.setProperty('--cat-color', catColor);
+
+    card.innerHTML = `
+      <div class="bento-card-top">
+        <div class="bento-card-cat-row">
+          <span class="bento-cat-pill">
+            <span class="bento-cat-dot"></span>
+            ${catName}
+          </span>
+          <div class="bento-card-actions-right">
             ${isUnread ? '<span class="new-badge">✨ NEW</span>' : ''}
-            <span class="bento-card-badge">${tool.badge}</span>
+            <button type="button" class="node-stack-btn ${inStack ? 'in-stack' : ''}">
+              ${inStack ? '✓ En Stack' : '+ Stack'}
+            </button>
+            <a href="${tool.url}" target="_blank" rel="noopener noreferrer" class="tc-web-pill">Web ↗</a>
           </div>
         </div>
-        <p class="bento-card-summary">${tool.summary}</p>
-        <div class="bento-card-footer">
-          <span>Pasa el ratón para ver ficha</span>
-          <button type="button" class="node-stack-btn ${inStack ? 'in-stack' : ''}">
-            ${inStack ? '✓ En Stack' : '+ Stack'}
-          </button>
+
+        <div class="bento-card-title-row">
+          <h3 class="bento-card-title">${isRec ? '★ ' : ''}${displayName}</h3>
+          <span class="bento-card-badge">${tool.badge}</span>
         </div>
-      `;
+      </div>
 
-      card.addEventListener('mouseenter', () => {
-        scheduleShowTechCard(tool.id);
-        const nb = card.querySelector('.new-badge');
-        if (nb) nb.remove();
-      });
-      card.addEventListener('mouseleave', () => scheduleHideTechCard());
+      <p class="bento-card-summary">${tool.summary}</p>
 
-      card.querySelector('.node-stack-btn').addEventListener('click', (e) => {
-        e.stopPropagation();
-        toggleToolInStack(tool.id);
-      });
-      card.addEventListener('click', () => openTechCard(tool.id, true));
-      grid.appendChild(card);
+      <div class="bento-usecase-box">
+        <span class="bento-usecase-icon">✦</span>
+        <div>${useCaseHtml}</div>
+      </div>
+
+      <div class="bento-synergy-wrap">
+        <span class="tc-micro-label">Combina genial con</span>
+        <div class="tc-synergy-chips">${synergiesHtml}</div>
+      </div>
+
+      <div class="bento-code-wrap">
+        <div class="tc-code-bar">
+          <span class="tc-micro-label">Inicio rápido</span>
+          <button type="button" class="tc-copy-btn btn-copy-bento-code">Copiar</button>
+        </div>
+        <pre class="bento-code-pre"><code>${tool.snippet || `// Documentación en ${tool.url}`}</code></pre>
+      </div>
+
+      <div class="bento-card-footer">
+        <div class="tc-status-bar bento-status-group">
+          <button type="button" class="tc-status-btn ${prog.status === 'none' ? 'active' : ''}" data-status="none">Sin marcar</button>
+          <button type="button" class="tc-status-btn ${prog.status === 'radar' ? 'active' : ''}" data-status="radar">En radar</button>
+          <button type="button" class="tc-status-btn ${prog.status === 'practicing' ? 'active' : ''}" data-status="practicing">Practicando</button>
+          <button type="button" class="tc-status-btn ${prog.status === 'mastered' ? 'active' : ''}" data-status="mastered">Dominada</button>
+        </div>
+        <input
+          type="text"
+          class="tc-note-input bento-note-input"
+          placeholder="Añadir nota rápida sobre esta tecnología..."
+          value="${(prog.notes || '').replace(/"/g, '&quot;')}"
+          autocomplete="off"
+        />
+      </div>
+    `;
+
+    card.addEventListener('mouseenter', () => {
+      setThreeCoreColor(catColor);
+      markToolAsSeen(tool.id);
     });
 
-    container.appendChild(group);
+    card.addEventListener('mouseleave', () => {
+      setThreeCoreColor('#38bdf8');
+    });
+
+    card.querySelector('.node-stack-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleToolInStack(tool.id);
+    });
+
+    card.querySelector('.btn-copy-bento-code').addEventListener('click', (e) => {
+      e.stopPropagation();
+      navigator.clipboard.writeText(tool.snippet || tool.url);
+      const btn = e.currentTarget;
+      btn.textContent = '¡Copiado!';
+      setTimeout(() => { btn.textContent = 'Copiar'; }, 1400);
+    });
+
+    card.querySelectorAll('.bento-status-group .tc-status-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const cur = getToolProgress(tool.id);
+        state.userProgress[tool.id] = { ...cur, status: btn.dataset.status };
+        localStorage.setItem(KEY_PROGRESS, JSON.stringify(state.userProgress));
+        card.querySelectorAll('.bento-status-group .tc-status-btn').forEach(b => {
+          b.classList.toggle('active', b.dataset.status === btn.dataset.status);
+        });
+        renderTree();
+      });
+    });
+
+    card.querySelector('.bento-note-input').addEventListener('input', (e) => {
+      const cur = getToolProgress(tool.id);
+      state.userProgress[tool.id] = { ...cur, notes: e.target.value };
+      localStorage.setItem(KEY_PROGRESS, JSON.stringify(state.userProgress));
+    });
+
+    grid.appendChild(card);
   });
 }
 
@@ -2296,13 +2722,11 @@ function populateModalCategories() {
   select.innerHTML = CATEGORIES.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
 }
 
-// ENLACE DE EVENTOS BLINDADO
+// ENLACE DE EVENTOS BLINDADO CON POINTER CAPTURE PARA ARRASTRE PERFECTO
 function bindEvents() {
-  // Conmutador principal con vuelo espacial FLIP: Modo Árbol <-> Modo Bento
   on('btnViewTree', 'click', () => switchMainView('tree'));
   on('btnViewBento', 'click', () => switchMainView('bento'));
 
-  // Botón Limpiar Filtro en la barra superior
   on('btnClearGlobalFilter', 'click', () => clearAllGlobalFilters());
 
   on('btnCheckOllama', 'click', () => checkOllamaStatus());
@@ -2322,6 +2746,7 @@ function bindEvents() {
     const isOpen = studioPanel.classList.toggle('open');
     launcherBtn.classList.toggle('active', isOpen);
     studioPanel.setAttribute('aria-hidden', String(!isOpen));
+    syncWorkspaceCorridor();
     if (isOpen) checkOllamaStatus();
   });
 
@@ -2330,6 +2755,7 @@ function bindEvents() {
     studioPanel.classList.remove('open');
     launcherBtn.classList.remove('active');
     studioPanel.setAttribute('aria-hidden', 'true');
+    syncWorkspaceCorridor();
   });
 
   document.querySelectorAll('.sp-tab').forEach(tabBtn => {
@@ -2362,7 +2788,7 @@ function bindEvents() {
       document.querySelectorAll('#tcStatusGroup .tc-status-btn').forEach(b => {
         b.classList.toggle('active', b.dataset.status === btn.dataset.status);
       });
-      renderTree();
+      renderAll();
     });
   });
 
@@ -2403,33 +2829,65 @@ function bindEvents() {
     renderAll();
   });
 
+  // ARRASTRE DEL ÁRBOL BLINDADO CON POINTER EVENTS (Evita saltos al usar el Asistente)
   const treeViewport = document.getElementById('treeViewport');
   if (treeViewport) {
-    treeViewport.addEventListener('mousedown', (e) => {
+    treeViewport.addEventListener('pointerdown', (e) => {
+      if (state.view !== 'tree' || state.isMorphingView || e.button !== 0) return;
       if (e.target.closest('.canvas-hud') || e.target.closest('.node')) return;
+
+      e.preventDefault();
+      resetBranchesWithGSAP(true);
+
       state.camera.isDragging = true;
-      state.camera.dragStartX = e.clientX - state.camera.targetX;
-      state.camera.dragStartY = e.clientY - state.camera.targetY;
+      state.camera.pointerId = e.pointerId;
+      state.camera.startMouseX = e.clientX;
+      state.camera.startMouseY = e.clientY;
+      state.camera.startCamX = state.camera.currentX;
+      state.camera.startCamY = state.camera.currentY;
+
       treeViewport.classList.add('dragging');
+      try {
+        treeViewport.setPointerCapture(e.pointerId);
+      } catch (err) {}
     });
 
-    window.addEventListener('mousemove', (e) => {
+    treeViewport.addEventListener('pointermove', (e) => {
+      if (!state.camera.isDragging || state.camera.pointerId !== e.pointerId) return;
+      const dx = e.clientX - state.camera.startMouseX;
+      const dy = e.clientY - state.camera.startMouseY;
+
+      state.camera.targetX = state.camera.startCamX + dx;
+      state.camera.targetY = state.camera.startCamY + dy;
+      state.camera.currentX = state.camera.targetX;
+      state.camera.currentY = state.camera.targetY;
+    });
+
+    const endDrag = (e) => {
       if (!state.camera.isDragging) return;
-      state.camera.targetX = e.clientX - state.camera.dragStartX;
-      state.camera.targetY = e.clientY - state.camera.dragStartY;
-    });
+      if (e && state.camera.pointerId !== null && e.pointerId !== state.camera.pointerId) return;
 
-    window.addEventListener('mouseup', () => {
       state.camera.isDragging = false;
+      try {
+        if (state.camera.pointerId !== null) {
+          treeViewport.releasePointerCapture(state.camera.pointerId);
+        }
+      } catch (err) {}
+      state.camera.pointerId = null;
       treeViewport.classList.remove('dragging');
-    });
+    };
+
+    treeViewport.addEventListener('pointerup', endDrag);
+    treeViewport.addEventListener('pointercancel', endDrag);
 
     treeViewport.addEventListener('dblclick', (e) => {
+      if (state.view !== 'tree') return;
       if (e.target.closest('.canvas-hud') || e.target.closest('.node')) return;
       centerCamera(false);
     });
 
     treeViewport.addEventListener('wheel', (e) => {
+      if (state.view !== 'tree') return;
       e.preventDefault();
       const rect = treeViewport.getBoundingClientRect();
       const factor = e.deltaY < 0 ? 1.12 : 0.89;
@@ -2441,7 +2899,15 @@ function bindEvents() {
   on('projectNameInput', 'input', (e) => {
     state.currentProject.name = e.target.value;
     persistActiveProject();
-    renderTree();
+    updateClearFilterButtonState();
+    const rootTitle = document.querySelector('#treeNodes .node-root .node-root-title');
+    if (rootTitle) {
+      rootTitle.textContent = state.currentProject.name ? state.currentProject.name.toUpperCase() : 'STACK PRO';
+    }
+    const bentoRootTitle = document.querySelector('#bentoCoreDock .node-root .node-root-title');
+    if (bentoRootTitle) {
+      bentoRootTitle.textContent = state.currentProject.name ? state.currentProject.name.toUpperCase() : 'STACK PRO';
+    }
   });
 
   on('btnRunAdvisor', 'click', () => {
@@ -2450,9 +2916,7 @@ function bindEvents() {
   });
 
   on('btnClearAdvisor', 'click', () => {
-    const advIn = document.getElementById('advisorInput');
-    if (advIn) advIn.value = '';
-    runProjectAdvisor('');
+    clearAllGlobalFilters();
   });
 
   document.querySelectorAll('.preset-chip').forEach(chip => {
